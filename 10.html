@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análise de Logs Compactos de Vendas</title>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --info-color: #17a2b8;
+            --light-gray: #f8f9fa;
+            --medium-gray: #e9ecef;
+            --dark-gray: #343a40;
+            --text-color: #212529;
+            --white: #fff;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 8px rgba(0,0,0,0.07);
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--light-gray);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+        }
+        .main-container {
+            max-width: 1300px;
+            margin: auto;
+            background: var(--white);
+            padding: 20px 30px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+        }
+        h1, h2 {
+            text-align: center;
+            color: var(--dark-gray);
+            margin-bottom: 30px;
+            border-bottom: 3px solid var(--primary-color);
+            padding-bottom: 15px;
+        }
+        h2 {
+            font-size: 1.8em;
+            color: var(--primary-color);
+            border-bottom-style: solid;
+            border-bottom-width: 2px;
+            margin-top: 40px;
+        }
+        
+        /* Estilos do Dashboard */
+        #dashboard-container { margin-bottom: 40px; }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .metric {
+            background-color: #f1f8ff;
+            border: 1px solid #c8e1ff;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 2.5em;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin: 0;
+        }
+        .metric-label { font-size: 1em; color: #586069; margin-top: 8px; }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        .summary-card {
+            background: #fff;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            border: 1px solid var(--medium-gray);
+            display: flex;
+            flex-direction: column;
+        }
+        .summary-card h3 {
+            margin-top: 0; margin-bottom: 15px; font-size: 1.2em;
+            color: var(--dark-gray); text-align: left;
+            border-bottom: 2px solid var(--medium-gray); padding-bottom: 10px;
+        }
+        .summary-card table { width: 100%; border-collapse: collapse; flex-grow: 1;}
+        .summary-card th, .summary-card td {
+            padding: 10px 5px; text-align: left; border-bottom: 1px solid var(--medium-gray);
+        }
+         .summary-card tr:last-child td { border-bottom: none; }
+        .summary-card td:last-child { text-align: right; font-weight: 600; }
+
+        /* Estilos da nova tabela de dados */
+        #analysis-table-container { overflow-x: auto; }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 0.9em;
+        }
+        .data-table thead { background-color: var(--primary-color); color: var(--white); }
+        .data-table th, .data-table td { padding: 12px 15px; text-align: left; border: 1px solid var(--medium-gray); vertical-align: middle;}
+        .data-table tbody tr:nth-of-type(even) { background-color: var(--light-gray); }
+        .data-table tbody tr:hover { background-color: #cfe8ff; }
+        .code-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            margin: 2px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            color: var(--white);
+            white-space: nowrap;
+            cursor: help;
+        }
+        .signal-code { background-color: var(--success-color); }
+        .objection-code { background-color: var(--danger-color); }
+        .stage-badge, .agent-badge { 
+            padding: 5px 12px; border-radius: 15px; font-size: 0.9em; color: var(--white); 
+            text-align: center; display: inline-block; cursor: help;
+        }
+        
+        @media (max-width: 1200px) { .summary-grid { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 768px) { .metrics-grid { grid-template-columns: 1fr 1fr; } .summary-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<div class="main-container">
+    <h1>Análise de Logs Compactos de Vendas</h1>
+    
+    <div id="dashboard-container"></div>
+    <hr>
+    <h2 id="details-title">Análise Detalhada por Contato</h2>
+    <div id="analysis-table-container"></div>
+
+</div>
+
+<script>
+const compactLogData = {
+    "compact_log": [
+        "6|S|PRICE|INFO,PAYMENT,ENROLL|G|LINK", "7|D|NONE|INFO|R|NONE", "8|P|TRUST|NONE|R|CLARIFY", "9|D|NONE|INFO|R|CLARIFY", "10|P|PRICE|INFO,PAYMENT,ENROLL|G|LINK",
+        "13|D|NONE|NONE|NA|FOLLOWUP", "14|P|TRUST|INFO|G|CLARIFY", "15|D|NONE|INFO|NA|NONE", "16|C|PRICE|ENROLL,INFO|R|FOLLOWUP", "19|P|PRICE|INFO,PAYMENT|G|LINK",
+        "20|P|NONE|NONE|NA|NONE", "21|S|NONE|INFO,ENROLL|G|NONE", "22|L|TIME|INFO|R|FOLLOWUP", "23|P|NONE|NONE|G|NONE", "25|P|TRUST|NONE|R|CLARIFY",
+        "27|C|PRICE|INFO|R|FOLLOWUP", "30|S|TRUST|INFO,ENROLL,PAYMENT|G|LINK", "31|S|TIME|INFO,ENROLL|G|LINK", "32|S|PRICE|INFO,PAYMENT,ENROLL|G|LINK", "34|P|NONE|NONE|R|CLARIFY",
+        "35|C|PRICE|INFO|R|FOLLOWUP", "37|C|NONE|INFO|R|FOLLOWUP", "39|C|TRUST|ENROLL,INFO|R|FOLLOWUP", "40|P|NONE|INFO,PAYMENT|R|LINK", "41|D|NONE|INFO|R|FOLLOWUP",
+        "42|D|NONE|INFO|R|FOLLOWUP", "43|P|NONE|INFO,PAYMENT|G|LINK", "44|P|NONE|INFO,PAYMENT|G|LINK", "45|C|PRICE|INFO,PAYMENT|G|FOLLOWUP", "48|P|NONE|INFO|R|CLARIFY",
+        "50|P|NONE|INFO|R|LINK", "51|S|PAYMENT|INFO,ENROLL|G|NONE", "53|D|NONE|INFO|R|FOLLOWUP", "54|P|TRUST|NONE|R|CLARIFY", "55|D|NONE|ENROLL|NA|FOLLOWUP",
+        "56|P|PRICE|INFO|R|LINK", "57|L|PRICE|INFO|R|FOLLOWUP", "58|S|PRICE|INFO,ENROLL|G|LINK", "59|P|TIME|INFO|R|FOLLOWUP", "60|C|NONE|INFO|R|LINK",
+        "61|S|NONE|ENROLL|G|LINK", "62|P|NONE|INFO|G|LINK", "63|P|NONE|INFO,PAYMENT|G|LINK", "64|L|TRUST|NONE|R|TAG_LOST", "65|P|TRUST|INFO|G|CLARIFY",
+        "66|P|PRICE|INFO,PAYMENT|G|LINK", "67|S|NONE|ENROLL|G|NONE", "68|C|PRICE|INFO|R|FOLLOWUP", "69|P|NONE|INFO,PAYMENT|G|LINK", "70|C|PRICE|INFO|R|TAG_LOST",
+        "71|P|NONE|INFO,PAYMENT|G|LINK", "72|C|TRUST|INFO,PAYMENT|G|LINK", "73|P|NONE|INFO,PAYMENT|R|LINK", "74|P|TRUST|INFO,PAYMENT|R|CLARIFY", "75|L|PRICE|INFO,ENROLL|R|TAG_LOST",
+        "76|P|NONE|NONE|R|NONE", "77|P|NONE|INFO,PAYMENT|G|LINK", "78|P|NONE|INFO,PAYMENT|G|LINK", "79|P|TRUST|INFO,PAYMENT|R|CLARIFY", "80|S|NONE|ENROLL|G|NONE",
+        "81|D|NONE|INFO|R|FOLLOWUP", "82|P|TRUST|NONE|R|CLARIFY", "83|P|NONE|ENROLL|G|NONE", "84|S|NONE|ENROLL|G|LINK", "85|P|NONE|INFO,PAYMENT|G|LINK",
+        "86|P|NONE|INFO,PAYMENT|G|LINK", "87|S|PRICE|INFO,ENROLL|G|LINK", "88|P|NONE|INFO,PAYMENT|G|LINK", "91|P|NONE|NONE|NA|NONE", "93|P|NONE|NONE|NA|NONE",
+        "98|P|TRUST|NONE|R|CLARIFY", "99|S|NONE|ENROLL|G|NONE", "101|P|TRUST|NONE|R|CLARIFY", "103|P|NONE|NONE|NA|NONE", "104|P|NONE|NONE|NA|NONE",
+        "106|P|TRUST|NONE|P|CLARIFY", "107|P|NONE|NONE|NA|NONE", "109|P|NONE|NONE|NA|NONE", "112|S|NONE|INFO,ENROLL,PAYMENT|G|LINK", "115|P|NONE|ENROLL|G|NONE",
+        "117|S|NONE|ENROLL|G|NONE", "122|P|TRUST|INFO|R|FOLLOWUP", "125|P|TRUST|INFO|R|CLARIFY", "383|P|NONE|NONE|NA|NONE", "388|D|NONE|INFO|NA|NONE",
+        "393|P|NONE|NONE|NA|NONE", "394|P|NONE|ENROLL|NA|NONE", "395|P|NONE|NONE|R|CLARIFY", "396|P|NONE|ENROLL|G|NONE", "397|L|TRUST|INFO|R|TAG_LOST",
+        "399|P|NONE|NONE|NA|NONE", "401|L|TRUST|NONE|G|TAG_LOST", "403|C|NONE|INFO|R|FOLLOWUP", "407|C|NONE|NONE|NA|NONE", "408|P|NONE|NONE|NA|NONE",
+        "410|P|NONE|NONE|NA|NONE", "412|P|NONE|ENROLL|G|NONE", "414|P|TRUST|INFO|R|CLARIFY", "415|S|PRICE|INFO,ENROLL|G|LINK", "417|C|PRICE|INFO|G|FOLLOWUP",
+        "421|S|NONE|ENROLL,PAYMENT|G|LINK", "422|P|TRUST|NONE|R|CLARIFY", "423|S|PRICE|INFO,PAYMENT|G|LINK", "424|P|NONE|ENROLL|G|NONE", "425|P|NONE|NONE|R|CLARIFY",
+        "426|L|PRICE|INFO|R|FOLLOWUP", "427|P|NONE|NONE|NA|NONE", "428|P|NONE|NONE|R|CLARIFY", "429|L|PRICE|INFO|R|TAG_LOST", "431|P|NONE|INFO|R|LINK",
+        "432|C|NONE|INFO,ENROLL|R|LINK", "433|P|TRUST|NONE|R|CLARIFY", "434|P|NONE|NONE|G|NONE", "436|P|TRUST|NONE|R|CLARIFY", "437|S|PRICE|ENROLL|G|LINK",
+        "439|S|PRICE|INFO,ENROLL|G|LINK", "440|P|NONE|NONE|NA|NONE", "441|S|PRICE|INFO,PAYMENT,ENROLL|G|LINK", "442|P|NONE|INFO|R|FOLLOWUP", "445|C|NONE|INFO,ENROLL|R|LINK",
+        "447|P|NONE|NONE|NA|NONE", "448|P|NONE|NONE|NA|NONE", "449|S|NONE|ENROLL|G|NONE", "451|C|TRUST|INFO|R|FOLLOWUP", "453|S|NONE|ENROLL|G|LINK",
+        "454|C|NONE|INFO,ENROLL|R|LINK", "455|S|PRICE|INFO,PAYMENT,ENROLL|G|LINK", "457|D|NONE|INFO|R|CLARIFY", "458|C|NONE|INFO|R|FOLLOWUP", "459|P|PAYMENT|ENROLL|G|LINK",
+        "460|D|NONE|NONE|NA|NONE", "461|D|NONE|ENROLL|NA|FOLLOWUP", "462|D|NONE|NONE|NA|FOLLOWUP", "463|D|NONE|INFO|R|FOLLOWUP", "464|P|NONE|NONE|R|CLARIFY",
+        "465|C|TRUST|INFO|R|FOLLOWUP", "466|S|PRICE|ENROLL|G|LINK", "471|P|TRUST|NONE|R|CLARIFY", "472|P|NONE|NONE|R|NONE", "473|C|NONE|INFO|R|FOLLOWUP",
+        "475|D|NONE|NONE|NA|FOLLOWUP", "476|S|PRICE|INFO,ENROLL|G|FOLLOWUP", "477|L|NONE|NONE|NA|TAG_LOST", "478|D|NONE|INFO|R|FOLLOWUP", "480|P|PRICE|INFO|G|LINK",
+        "482|C|PRICE|INFO|R|FOLLOWUP", "483|S|TRUST|INFO,ENROLL|G|LINK", "484|S|NONE|ENROLL|G|LINK", "486|P|NONE|NONE|R|NONE", "488|S|NONE|INFO,ENROLL|G|LINK",
+        "489|P|NONE|NONE|NA|NONE", "490|D|NONE|INFO|G|CLARIFY", "493|D|NONE|NONE|NA|NONE", "494|L|TIME|NONE|G|TAG_LOST", "495|D|NONE|INFO|R|FOLLOWUP",
+        "496|C|PRICE|INFO|R|TAG_LOST", "497|S|NONE|INFO,ENROLL|G|LINK", "498|D|NONE|INFO|R|CLARIFY", "499|C|NONE|INFO|R|FOLLOWUP", "500|P|TRUST|INFO|R|CLARIFY",
+        "505|L|NONE|NONE|R|TAG_LOST", "507|C|PRICE|INFO|R|FOLLOWUP", "509|D|NONE|NONE|NA|NONE", "510|L|PRICE|INFO|R|TAG_LOST", "512|D|NONE|INFO|R|FOLLOWUP",
+        "513|L|PRICE|INFO|R|FOLLOWUP", "517|D|NONE|INFO|R|FOLLOWUP", "518|L|PRICE|NONE|R|TAG_LOST", "519|P|NONE|NONE|R|NONE", "520|S|PRICE|INFO,ENROLL|G|LINK",
+        "521|D|NONE|INFO|R|FOLLOWUP", "524|D|NONE|INFO|R|FOLLOWUP", "525|C|TRUST|INFO|R|FOLLOWUP", "527|C|TRUST|INFO,ENROLL|R|FOLLOWUP", "528|C|NONE|INFO|R|FOLLOWUP",
+        "529|P|NONE|NONE|NA|NONE", "531|C|TRUST|INFO|R|FOLLOWUP", "532|D|NONE|INFO|R|FOLLOWUP", "533|S|NONE|INFO,ENROLL|G|LINK", "534|D|NONE|INFO|R|FOLLOWUP",
+        "535|D|NONE|INFO|R|FOLLOWUP", "536|D|NONE|INFO|R|FOLLOWUP", "537|D|NONE|INFO|R|FOLLOWUP", "538|C|NONE|INFO|R|FOLLOWUP", "539|D|NONE|INFO|R|FOLLOWUP",
+        "540|C|TRUST|INFO|R|CLARIFY", "541|D|NONE|NONE|NA|NONE", "543|C|PRICE|INFO|R|FOLLOWUP", "547|S|NONE|ENROLL|G|NONE", "549|S|NONE|INFO,ENROLL|G|LINK",
+        "552|L|NONE|INFO|R|TAG_LOST", "555|D|PRICE|INFO,ENROLL|G|FOLLOWUP", "556|D|NONE|NONE|NA|NONE", "557|P|NONE|NONE|NA|NONE", "559|P|TRUST|INFO|R|CLARIFY",
+        "560|D|NONE|INFO|R|CLARIFY", "561|S|PRICE|INFO,ENROLL|G|LINK", "562|D|NONE|INFO|R|FOLLOWUP", "563|C|NONE|INFO|R|FOLLOWUP", "565|P|NONE|NONE|NA|NONE",
+        "566|S|NONE|INFO|G|LINK", "569|S|NONE|INFO,ENROLL|G|LINK", "574|S|PRICE|INFO,PAYMENT,ENROLL|G|LINK", "575|L|PRICE|INFO|R|FOLLOWUP", "576|P|NONE|NONE|NA|NONE",
+        "578|C|NONE|INFO|R|FOLLOWUP", "579|L|TIME|INFO|R|TAG_LOST", "580|D|NONE|INFO|R|FOLLOWUP", "581|P|NONE|NONE|NA|NONE", "582|P|NONE|NONE|NA|NONE",
+        "583|S|PRICE|INFO,PAYMENT,ENROLL|G|LINK", "584|C|NONE|INFO|R|FOLLOWUP", "585|C|PRICE|INFO|R|FOLLOWUP", "586|P|NONE|NONE|NA|NONE", "587|D|NONE|INFO|R|FOLLOWUP",
+        "588|D|NONE|NONE|NA|NONE", "591|D|TRUST|INFO|R|FOLLOWUP", "593|C|PRICE|INFO,ENROLL|R|FOLLOWUP", "594|C|NONE|INFO|R|FOLLOWUP", "595|D|NONE|ENROLL|R|LINK",
+        "596|D|NONE|NONE|NA|NONE", "600|P|NONE|NONE|NA|NONE", "602|P|TRUST|NONE|G|CLARIFY", "603|D|NONE|INFO|G|CLARIFY", "605|D|NONE|NONE|NA|NONE",
+        "607|L|PRICE|NONE|R|TAG_LOST", "608|C|PRICE|ENROLL|R|FOLLOWUP", "609|P|NONE|NONE|NA|NONE", "610|P|NONE|NONE|R|NONE", "612|C|PRICE|INFO|R|FOLLOWUP",
+        "613|S|NONE|INFO,ENROLL|G|LINK", "615|C|TRUST|INFO|R|FOLLOWUP", "617|S|NONE|PAYMENT,ENROLL|G|LINK", "618|D|NONE|NONE|NA|NONE", "619|D|NONE|INFO|R|FOLLOWUP",
+        "626|S|TRUST|INFO,ENROLL|G|LINK", "628|P|NONE|NONE|NA|NONE", "631|P|NONE|NONE|NA|NONE", "632|D|NONE|NONE|NA|NONE", "633|P|NONE|NONE|NA|NONE",
+        "634|S|NONE|ENROLL|G|LINK", "638|C|PRICE|INFO|R|FOLLOWUP", "639|L|PRICE|INFO|R|TAG_LOST", "640|C|NONE|INFO|R|FOLLOWUP", "641|D|NONE|INFO|R|FOLLOWUP",
+        "642|D|TRUST|INFO|R|FOLLOWUP", "643|D|NONE|INFO|R|FOLLOWUP", "644|D|NONE|INFO|G|CLARIFY", "645|D|NONE|INFO|R|FOLLOWUP", "646|C|TRUST|INFO|R|FOLLOWUP",
+        "647|D|PRICE|INFO|R|CLARIFY", "651|P|TRUST|NONE|R|CLARIFY", "657|L|TIME|NONE|NA|TAG_LOST", "660|P|NONE|NONE|NA|NONE", "663|P|NONE|NONE|NA|NONE",
+        "665|S|PRICE|INFO,ENROLL|G|LINK", "668|D|NONE|NONE|NA|NONE", "669|L|NONE|NONE|NA|TAG_LOST", "670|P|NONE|NONE|NA|NONE", "671|C|NONE|INFO|G|LINK",
+        "677|D|NONE|INFO|R|NONE", "679|S|NONE|INFO,ENROLL|G|LINK", "687|C|NONE|INFO|R|FOLLOWUP", "704|L|TRUST|NONE|P|TAG_LOST", "714|P|NONE|NONE|NA|NONE",
+        "716|P|NONE|NONE|NA|NONE", "717|L|NONE|INFO|G|FOLLOWUP", "718|S|PRICE|INFO,ENROLL,PAYMENT|G|LINK", "720|P|NONE|NONE|NA|NONE", "722|P|NONE|NONE|NA|NONE",
+        "723|C|PRICE|INFO|R|FOLLOWUP", "726|S|PRICE|INFO,ENROLL|G|LINK", "728|P|NONE|NONE|NA|NONE", "729|P|NONE|NONE|NA|NONE", "730|P|NONE|NONE|NA|NONE",
+        "732|D|NONE|NONE|NA|NONE", "734|P|NONE|NONE|NA|NONE", "736|P|NONE|NONE|NA|NONE", "737|P|NONE|NONE|NA|NONE", "739|P|NONE|NONE|NA|NONE",
+        "743|P|NONE|NONE|NA|NONE", "746|P|NONE|NONE|NA|NONE", "747|P|NONE|NONE|NA|NONE", "748|S|NONE|INFO|G|LINK", "751|P|NONE|NONE|NA|NONE",
+        "754|P|NONE|NONE|NA|NONE", "755|P|NONE|NONE|NA|NONE", "756|C|NONE|INFO|R|FOLLOWUP", "759|D|NONE|INFO|R|FOLLOWUP", "761|L|TRUST|NONE|R|TAG_LOST",
+        "762|P|TRUST|NONE|R|CLARIFY", "763|P|NONE|NONE|NA|NONE", "764|P|NONE|NONE|NA|NONE", "765|P|NONE|NONE|NA|NONE", "767|D|TRUST|INFO|R|FOLLOWUP",
+        "769|S|NONE|INFO|G|LINK", "770|P|NONE|NONE|NA|NONE", "773|P|NONE|NONE|NA|NONE", "775|P|NONE|NONE|NA|NONE", "776|P|NONE|NONE|NA|NONE",
+        "778|P|NONE|NONE|NA|NONE", "780|P|NONE|NONE|NA|NONE", "781|P|NONE|NONE|NA|NONE", "782|D|NONE|INFO|R|FOLLOWUP", "783|C|NONE|INFO,ENROLL|R|FOLLOWUP",
+        "786|D|NONE|INFO|G|NONE", "789|P|TRUST|NONE|R|CLARIFY", "790|P|NONE|NONE|NA|NONE", "791|P|NONE|NONE|NA|NONE", "795|P|NONE|NONE|NA|NONE",
+        "796|P|NONE|NONE|NA|NONE", "797|C|NONE|INFO|R|FOLLOWUP", "798|C|PRICE|INFO|R|FOLLOWUP", "801|D|NONE|INFO|R|FOLLOWUP", "802|C|PRICE|INFO|R|FOLLOWUP",
+        "803|D|NONE|INFO|R|FOLLOWUP", "805|L|NONE|INFO|R|TAG_LOST", "806|S|NONE|INFO,ENROLL|G|LINK", "808|P|NONE|NONE|NA|NONE", "811|P|TIME|NONE|R|NONE",
+        "815|L|NONE|NONE|G|TAG_LOST", "817|C|PRICE|INFO|R|FOLLOWUP", "822|P|NONE|NONE|NA|NONE", "824|P|NONE|NONE|NA|NONE", "825|D|NONE|INFO|R|FOLLOWUP",
+        "828|P|NONE|NONE|NA|NONE", "829|P|NONE|NONE|NA|NONE", "836|P|NONE|NONE|NA|NONE", "853|P|NONE|NONE|NA|NONE", "855|L|PRICE|INFO|R|TAG_LOST",
+        "860|C|PRICE|INFO|G|LINK", "896|L|PRICE|INFO|R|TAG_LOST", "912|P|NONE|NONE|NA|NONE", "935|D|NONE|NONE|NA|NONE", "958|C|NONE|INFO|R|FOLLOWUP",
+        "967|P|NONE|NONE|NA|NONE", "968|P|NONE|NONE|NA|NONE", "969|P|NONE|NONE|NA|NONE", "972|P|NONE|NONE|NA|NONE", "973|P|NONE|NONE|NA|NONE",
+        "975|P|NONE|NONE|NA|NONE", "977|S|PRICE|INFO,PAYMENT|G|LINK", "978|C|PRICE|INFO|R|FOLLOWUP", "979|D|NONE|INFO|R|FOLLOWUP", "980|C|NONE|INFO|R|FOLLOWUP",
+        "981|S|NONE|ENROLL|G|NONE", "982|L|NONE|INFO|R|FOLLOWUP", "983|C|PRICE|INFO|R|FOLLOWUP", "984|P|NONE|NONE|NA|NONE", "985|C|PRICE|INFO|R|FOLLOWUP",
+        "986|D|NONE|INFO|R|FOLLOWUP", "988|L|NONE|INFO|G|TAG_LOST", "989|D|NONE|INFO|R|FOLLOWUP", "991|P|NONE|NONE|NA|NONE", "993|L|PRICE|NONE|G|TAG_LOST",
+        "995|L|PRICE|NONE|G|TAG_LOST", "996|P|NONE|NONE|NA|NONE", "1002|P|NONE|NONE|R|NONE", "1003|C|PRICE|INFO|R|FOLLOWUP", "1004|L|TIME|INFO|R|FOLLOWUP",
+        "1005|C|NONE|INFO|R|LINK", "1007|L|PRICE|INFO|R|TAG_LOST", "1008|S|NONE|ENROLL|G|LINK", "1010|P|NONE|INFO|R|NONE", "1018|P|NONE|NONE|NA|NONE",
+        "1020|D|NONE|NONE|NA|NONE", "1024|C|NONE|INFO,ENROLL|R|LINK", "1026|P|NONE|NONE|NA|NONE", "1027|L|PRICE|INFO|R|TAG_LOST", "1031|L|TIME|NONE|R|TAG_LOST",
+        "1032|D|PRICE|INFO|R|LINK", "1038|S|NONE|ENROLL|G|LINK", "1040|D|NONE|NONE|NA|NONE", "1041|C|NONE|INFO|R|FOLLOWUP", "1044|C|NONE|INFO|R|FOLLOWUP",
+        "1047|P|NONE|NONE|NA|NONE", "1050|P|NONE|NONE|NA|NONE", "1098|P|NONE|NONE|G|NONE", "1111|C|PRICE|INFO|R|FOLLOWUP", "1114|P|NONE|ENROLL|G|NONE",
+        "1117|P|NONE|NONE|G|NONE", "1118|P|NONE|NONE|NA|NONE", "1119|D|NONE|NONE|NA|NONE", "1125|C|PRICE|INFO|R|FOLLOWUP", "1126|P|NONE|NONE|NA|NONE",
+        "1134|P|NONE|NONE|NA|NONE", "1137|L|PRICE|INFO|G|TAG_LOST", "1139|C|NONE|INFO|R|FOLLOWUP", "1140|L|TRUST|INFO|R|TAG_LOST", "1141|C|TRUST|INFO|R|CLARIFY",
+        "1142|L|PRICE|INFO|R|TAG_LOST", "1143|D|NONE|NONE|NA|NONE", "1145|P|NONE|NONE|NA|NONE", "1147|D|NONE|ENROLL|R|FOLLOWUP", "1149|C|NONE|INFO|R|FOLLOWUP",
+        "1150|D|NONE|NONE|NA|NONE", "1152|S|NONE|ENROLL|G|LINK", "1153|L|TIME|INFO|R|TAG_LOST", "1155|D|NONE|INFO|R|FOLLOWUP", "1156|D|NONE|NONE|NA|NONE",
+        "1157|D|NONE|INFO|R|FOLLOWUP", "1159|P|TRUST|NONE|R|CLARIFY", "1160|C|TRUST|INFO|R|FOLLOWUP", "1161|P|NONE|NONE|NA|NONE", "1162|P|NONE|ENROLL|G|NONE",
+        "1163|C|PRICE|INFO,PAYMENT|G|LINK", "1167|L|TIME|INFO|R|FOLLOWUP", "1169|L|TRUST|NONE|R|TAG_LOST", "1170|P|NONE|NONE|NA|NONE", "1171|P|NONE|NONE|NA|NONE",
+        "1172|D|NONE|NONE|NA|NONE", "1173|P|NONE|NONE|NA|NONE", "1178|D|PRICE|INFO|R|FOLLOWUP", "1182|C|NONE|INFO|R|FOLLOWUP", "1184|C|NONE|INFO|R|FOLLOWUP",
+        "1188|D|NONE|INFO|R|FOLLOWUP", "1198|P|NONE|NONE|NA|NONE", "1199|P|NONE|NONE|NA|NONE", "1201|C|NONE|INFO|R|FOLLOWUP", "1209|P|NONE|NONE|NA|NONE",
+        "1212|P|NONE|NONE|R|NONE", "1213|P|TIME|NONE|R|NONE", "1214|P|NONE|NONE|NA|NONE", "1216|P|NONE|NONE|NA|NONE", "1218|L|TIME|INFO|R|TAG_LOST",
+        "1221|L|PRICE|INFO|R|TAG_LOST", "1222|P|NONE|NONE|NA|NONE", "1223|D|NONE|NONE|NA|NONE", "1232|P|NONE|NONE|NA|NONE", "1241|P|NONE|INFO|R|CLARIFY",
+        "1243|P|NONE|NONE|NA|NONE", "1244|D|NONE|NONE|NA|NONE", "1247|D|NONE|INFO|R|FOLLOWUP", "1248|S|NONE|ENROLL|G|LINK", "1249|C|NONE|INFO|G|FOLLOWUP",
+        "1252|P|NONE|NONE|NA|NONE", "1254|D|NONE|INFO|R|FOLLOWUP", "1257|D|NONE|NONE|NA|NONE", "1261|P|NONE|NONE|NA|NONE", "1262|L|PRICE|INFO|G|TAG_LOST",
+        "1266|L|TRUST|NONE|R|TAG_LOST", "1267|D|NONE|NONE|NA|NONE", "1270|P|NONE|NONE|NA|NONE", "1271|P|TIME|NONE|R|NONE", "1272|P|NONE|NONE|NA|NONE",
+        "1274|P|NONE|NONE|NA|NONE", "1275|P|NONE|NONE|NA|NONE", "1276|P|NONE|NONE|R|NONE", "1277|D|NONE|NONE|NA|NONE", "1286|P|NONE|NONE|NA|NONE",
+        "1287|P|NONE|NONE|NA|NONE", "1288|D|NONE|NONE|NA|NONE", "1289|P|NONE|NONE|NA|NONE", "1296|P|NONE|NONE|NA|NONE", "1297|D|NONE|NONE|NA|NONE",
+        "1301|P|NONE|NONE|NA|NONE", "1306|P|NONE|NONE|R|NONE", "1314|C|NONE|ENROLL|R|FOLLOWUP", "1316|S|NONE|INFO,ENROLL|G|FOLLOWUP", "1317|D|NONE|INFO|R|FOLLOWUP",
+        "1321|C|TIME|INFO|R|FOLLOWUP", "1322|C|NONE|INFO,ENROLL|G|FOLLOWUP", "1323|S|PRICE|INFO,ENROLL|G|LINK", "1324|D|TRUST|NONE|R|CLARIFY", "1325|D|NONE|NONE|NA|NONE",
+        "1327|L|TIME|NONE|G|TAG_LOST", "1329|D|NONE|INFO|G|FOLLOWUP", "1331|P|NONE|NONE|NA|NONE", "1334|D|NONE|INFO|R|FOLLOWUP", "1336|D|NONE|NONE|NA|NONE",
+        "1343|P|NONE|ENROLL|G|NONE", "1344|C|NONE|INFO|R|FOLLOWUP", "1346|P|NONE|NONE|NA|NONE", "1347|D|PRICE|INFO|R|FOLLOWUP", "1348|C|NONE|INFO,ENROLL|R|FOLLOWUP",
+        "1376|C|NONE|INFO|R|TAG_LOST", "1378|P|NONE|NONE|NA|NONE", "1382|P|NONE|NONE|NA|NONE", "1400|P|NONE|NONE|NA|NONE", "1401|P|NONE|NONE|NA|NONE",
+        "1408|D|NONE|INFO|G|CLARIFY", "1412|D|NONE|ENROLL|G|FOLLOWUP", "1414|P|NONE|NONE|NA|NONE", "1418|P|NONE|NONE|NA|NONE", "1440|P|NONE|NONE|NA|NONE",
+        "1443|P|NONE|NONE|NA|NONE", "1447|P|NONE|NONE|NA|NONE", "1459|P|NONE|NONE|NA|NONE", "1478|D|NONE|NONE|NA|NONE", "1481|P|NONE|NONE|NA|NONE",
+        "1483|P|NONE|NONE|NA|NONE", "1485|P|NONE|NONE|NA|NONE", "1498|P|NONE|NONE|NA|NONE", "1501|P|NONE|NONE|NA|NONE", "1506|L|NONE|INFO|R|TAG_LOST",
+        "1510|P|NONE|NONE|NA|NONE", "1511|P|NONE|NONE|NA|NONE", "1519|P|NONE|NONE|NA|NONE", "1520|P|NONE|NONE|NA|NONE", "1530|P|NONE|NONE|NA|NONE",
+        "1546|C|TIME|INFO|R|FOLLOWUP", "1547|P|NONE|NONE|NA|NONE", "1549|P|TRUST|NONE|R|CLARIFY", "1553|D|NONE|NONE|NA|NONE", "1554|P|NONE|NONE|NA|NONE",
+        "1555|D|NONE|NONE|NA|NONE", "1557|C|PRICE|INFO|R|FOLLOWUP", "1558|L|NONE|INFO|R|TAG_LOST", "1559|D|NONE|INFO|R|FOLLOWUP", "1560|S|NONE|ENROLL|G|LINK",
+        "1562|S|PRICE|INFO|G|LINK", "1563|C|NONE|INFO|R|FOLLOWUP", "1564|C|NONE|INFO|R|FOLLOWUP", "1565|D|NONE|ENROLL|R|LINK", "1566|C|NONE|INFO|R|FOLLOWUP",
+        "1568|P|NONE|NONE|NA|NONE", "1569|D|NONE|NONE|NA|NONE", "1576|D|NONE|NONE|NA|NONE", "1582|D|NONE|NONE|NA|NONE", "1595|P|NONE|NONE|NA|NONE",
+        "1598|P|NONE|NONE|NA|NONE", "1640|S|PRICE|INFO,PAYMENT|G|LINK", "1643|P|NONE|INFO|R|NONE", "1644|D|NONE|NONE|NA|NONE", "1648|P|NONE|NONE|NA|NONE",
+        "1656|C|PRICE|INFO|R|FOLLOWUP", "1660|P|NONE|NONE|NA|NONE", "1669|L|NONE|NONE|R|TAG_LOST", "1671|P|NONE|NONE|NA|NONE", "1675|L|TIME|INFO|R|TAG_LOST",
+        "1712|C|NONE|INFO|G|CLARIFY", "1715|C|TRUST|INFO|R|FOLLOWUP", "1718|P|NONE|NONE|NA|NONE", "1731|C|NONE|INFO|R|FOLLOWUP", "1740|P|NONE|NONE|NA|NONE",
+        "1757|P|NONE|NONE|NA|NONE", "1758|C|PRICE|INFO|R|TAG_LOST", "1759|L|PRICE|INFO|R|TAG_LOST", "1773|P|NONE|NONE|NA|NONE", "1779|D|NONE|INFO|R|FOLLOWUP",
+        "1787|D|NONE|NONE|NA|NONE", "1801|D|NONE|NONE|NA|NONE", "1807|P|NONE|NONE|NA|NONE", "1821|P|NONE|NONE|NA|NONE", "1856|D|NONE|NONE|NA|NONE",
+        "1862|C|NONE|INFO|R|FOLLOWUP", "1870|S|NONE|INFO|G|LINK", "1875|C|TIME|NONE|R|FOLLOWUP", "1883|P|NONE|NONE|NA|NONE", "1888|C|PRICE|INFO|R|FOLLOWUP",
+        "1902|P|NONE|NONE|NA|NONE", "1910|P|NONE|NONE|NA|NONE", "1914|L|NONE|NONE|G|TAG_LOST", "1937|C|TIME|INFO|R|FOLLOWUP", "1945|P|NONE|NONE|NA|NONE",
+        "1946|C|NONE|INFO|R|FOLLOWUP", "1949|C|NONE|INFO|R|FOLLOWUP", "1955|L|TIME|INFO|R|FOLLOWUP", "1956|L|TIME|NONE|R|TAG_LOST", "1966|D|NONE|NONE|NA|NONE",
+        "1969|P|NONE|NONE|NA|NONE", "2039|P|NONE|NONE|NA|NONE", "2055|P|NONE|NONE|NA|NONE", "2073|P|NONE|NONE|NA|NONE", "2083|P|NONE|NONE|NA|NONE",
+        "2092|C|PRICE|INFO|R|FOLLOWUP", "2109|L|TIME|NONE|G|TAG_LOST", "2114|P|NONE|NONE|NA|NONE", "2115|P|NONE|NONE|NA|NONE", "2122|P|NONE|NONE|NA|NONE",
+        "2145|P|NONE|NONE|NA|NONE", "2155|D|NONE|INFO|R|FOLLOWUP", "2169|P|NONE|NONE|NA|NONE", "2180|P|NONE|NONE|NA|NONE", "2191|C|TRUST|INFO|R|FOLLOWUP",
+        "2250|P|NONE|NONE|NA|NONE", "2293|L|NONE|NONE|NA|TAG_LOST", "2294|P|NONE|NONE|NA|NONE", "2323|L|TIME|INFO|R|TAG_LOST", "2324|D|NONE|INFO|R|FOLLOWUP",
+        "2325|C|TRUST|INFO|R|FOLLOWUP", "2326|D|NONE|INFO|R|CLARIFY", "2327|D|NONE|INFO|R|FOLLOWUP", "2329|P|NONE|NONE|NA|NONE", "2338|D|NONE|INFO|R|FOLLOWUP",
+        "2339|S|NONE|INFO|G|LINK", "2355|P|NONE|NONE|NA|NONE", "2366|D|NONE|NONE|NA|NONE", "2368|D|NONE|NONE|NA|NONE", "2409|D|PRICE|INFO|R|FOLLOWUP",
+        "2412|P|NONE|NONE|NA|NONE", "2414|P|NONE|NONE|NA|NONE", "2427|P|NONE|NONE|NA|NONE", "2469|P|NONE|NONE|NA|NONE", "2479|P|NONE|NONE|NA|NONE",
+        "2508|P|NONE|NONE|NA|NONE", "2515|P|TRUST|INFO|G|CLARIFY", "2533|P|NONE|NONE|NA|NONE", "2535|D|NONE|INFO|R|CLARIFY", "2536|P|NONE|NONE|NA|NONE",
+        "2539|P|NONE|NONE|NA|NONE", "2550|C|NONE|INFO|R|FOLLOWUP", "2551|S|NONE|ENROLL|G|LINK", "2558|P|NONE|NONE|NA|NONE", "2561|D|TRUST|INFO|R|CLARIFY",
+        "2566|P|NONE|NONE|NA|NONE", "2567|P|NONE|NONE|NA|NONE", "2573|D|NONE|NONE|NA|NONE", "2576|S|NONE|ENROLL|G|LINK", "2577|C|NONE|INFO|R|FOLLOWUP",
+        "2578|L|PRICE|INFO|R|TAG_LOST", "2579|D|TRUST|INFO|R|FOLLOWUP", "2582|S|NONE|ENROLL|G|LINK", "2583|D|NONE|INFO|R|CLARIFY", "2588|P|NONE|NONE|NA|NONE",
+        "2589|C|NONE|INFO|R|FOLLOWUP", "2592|S|NONE|INFO|G|LINK", "2595|C|TRUST|INFO|R|FOLLOWUP", "2598|D|NONE|NONE|NA|NONE", "2600|C|TIME|INFO|R|FOLLOWUP",
+        "2609|P|NONE|NONE|NA|NONE", "2615|D|NONE|NONE|NA|NONE", "2620|P|NONE|NONE|NA|NONE", "2621|C|NONE|INFO|R|FOLLOWUP", "2622|S|PRICE|INFO|G|LINK",
+        "2623|D|NONE|NONE|NA|NONE", "2624|C|NONE|INFO|R|FOLLOWUP", "2626|C|NONE|INFO|R|FOLLOWUP", "2633|C|NONE|INFO|R|FOLLOWUP", "2634|D|NONE|INFO|R|FOLLOWUP",
+        "2637|C|NONE|INFO,ENROLL|R|FOLLOWUP", "2643|C|PRICE|INFO|R|FOLLOWUP", "2644|D|NONE|ENROLL|R|FOLLOWUP", "2647|P|NONE|NONE|NA|NONE", "2648|P|NONE|NONE|NA|NONE",
+        "2658|D|NONE|INFO|R|FOLLOWUP", "2663|P|NONE|NONE|NA|NONE", "2665|C|PRICE|INFO|R|FOLLOWUP", "2670|D|NONE|NONE|NA|NONE", "2671|P|NONE|NONE|NA|NONE",
+        "2673|C|NONE|INFO|R|FOLLOWUP", "2674|D|NONE|NONE|NA|NONE", "2675|C|NONE|INFO|R|FOLLOWUP", "2678|L|PRICE|PAYMENT|G|TAG_LOST", "2689|P|NONE|NONE|NA|NONE",
+        "2690|D|NONE|INFO|R|FOLLOWUP", "2707|P|NONE|NONE|NA|NONE", "2710|C|PRICE|INFO|R|TAG_LOST", "2711|P|NONE|NONE|NA|NONE", "2728|D|NONE|NONE|NA|NONE",
+        "2729|P|NONE|NONE|NA|NONE", "2730|P|NONE|NONE|NA|NONE", "2751|S|NONE|INFO|G|LINK", "2761|P|NONE|NONE|NA|NONE", "2772|P|NONE|NONE|NA|NONE",
+        "2774|P|NONE|NONE|NA|NONE", "2785|C|PRICE|INFO|R|FOLLOWUP", "2787|P|NONE|NONE|NA|NONE", "2794|P|NONE|NONE|NA|NONE", "2798|P|NONE|NONE|NA|NONE",
+        "2802|P|NONE|NONE|NA|NONE", "2808|P|NONE|NONE|NA|NONE", "2845|P|NONE|NONE|NA|NONE", "2872|L|TIME|INFO|R|TAG_LOST", "2879|P|NONE|INFO|NA|NONE",
+        "2884|S|NONE|INFO,ENROLL|G|LINK", "2885|P|NONE|NONE|NA|NONE", "2890|D|NONE|INFO|R|FOLLOWUP", "2891|P|NONE|NONE|NA|NONE", "2892|C|NONE|INFO|R|FOLLOWUP",
+        "2893|D|NONE|INFO|R|CLARIFY", "2894|D|NONE|NONE|NA|NONE", "2895|C|NONE|INFO|R|FOLLOWUP", "2896|D|NONE|NONE|NA|NONE", "2897|D|TRUST|INFO|R|FOLLOWUP",
+        "2898|D|NONE|ENROLL|R|FOLLOWUP", "2900|D|TRUST|INFO|R|FOLLOWUP", "2901|D|NONE|NONE|NA|NONE", "2902|C|NONE|INFO|R|FOLLOWUP", "2903|C|NONE|INFO|R|FOLLOWUP",
+        "2904|D|NONE|ENROLL|R|FOLLOWUP", "2905|D|NONE|NONE|NA|NONE", "2906|D|NONE|INFO|R|FOLLOWUP", "2908|C|PRICE|INFO,PAYMENT|R|FOLLOWUP", "2910|C|NONE|INFO|R|FOLLOWUP",
+        "2911|D|TRUST|NONE|G|NONE", "2912|C|TRUST|INFO|R|FOLLOWUP", "2913|D|NONE|NONE|NA|NONE", "2914|D|NONE|NONE|NA|NONE", "2915|D|NONE|NONE|G|NONE",
+        "2917|S|NONE|INFO,ENROLL|G|LINK", "2918|L|NONE|INFO|R|TAG_LOST", "2921|C|NONE|INFO|R|FOLLOWUP", "2922|C|NONE|INFO|G|LINK", "2923|C|NONE|INFO|R|FOLLOWUP",
+        "2924|C|NONE|INFO|R|FOLLOWUP", "2925|D|NONE|INFO|R|FOLLOWUP", "2929|D|NONE|NONE|NA|NONE", "2931|L|NONE|NONE|G|NONE", "2932|D|NONE|NONE|NA|NONE",
+        "2933|L|TIME|INFO|R|TAG_LOST", "2934|S|NONE|INFO|G|LINK", "2937|D|NONE|INFO|R|FOLLOWUP", "2938|C|NONE|INFO|R|FOLLOWUP", "2939|S|NONE|INFO|G|LINK",
+        "2940|P|NONE|NONE|NA|NONE", "2942|S|NONE|ENROLL|G|LINK", "2943|C|PRICE|INFO|R|FOLLOWUP", "2944|S|NONE|ENROLL|G|LINK", "2945|D|NONE|INFO|R|FOLLOWUP",
+        "2946|P|NONE|NONE|NA|NONE", "2948|S|NONE|INFO|G|LINK", "2949|P|NONE|NONE|NA|NONE", "2954|S|NONE|ENROLL|G|LINK", "2955|D|NONE|INFO|R|FOLLOWUP",
+        "2957|C|PRICE|INFO|R|FOLLOWUP", "2963|D|NONE|NONE|NA|NONE", "2964|D|NONE|INFO|R|FOLLOWUP", "2969|P|NONE|NONE|NA|NONE", "2971|D|PRICE|INFO|R|FOLLOWUP",
+        "2972|D|NONE|ENROLL|NA|FOLLOWUP", "2973|S|NONE|NONE|G|LINK", "2974|D|NONE|INFO|R|FOLLOWUP", "2975|D|NONE|INFO|R|FOLLOWUP", "2976|P|NONE|NONE|NA|NONE",
+        "2978|D|NONE|ENROLL|R|FOLLOWUP", "2979|C|NONE|INFO|R|FOLLOWUP", "2980|L|NONE|INFO|R|TAG_LOST", "2981|D|NONE|INFO|R|FOLLOWUP", "2982|D|NONE|INFO|R|FOLLOWUP",
+        "2983|D|NONE|ENROLL|R|FOLLOWUP", "2984|D|NONE|ENROLL|R|FOLLOWUP", "2985|D|NONE|ENROLL|R|LINK", "2986|L|PRICE|INFO|R|TAG_LOST", "2987|C|NONE|NONE|NA|NONE",
+        "2989|D|NONE|ENROLL|R|FOLLOWUP", "2990|S|NONE|INFO,PAYMENT|G|LINK", "2991|D|NONE|NONE|NA|NONE", "2992|L|PRICE|INFO|R|TAG_LOST", "2993|D|NONE|ENROLL|R|FOLLOWUP",
+        "2994|D|NONE|INFO|R|FOLLOWUP", "2995|D|NONE|INFO|R|FOLLOWUP", "2996|P|NONE|NONE|NA|NONE", "2997|L|TRUST|NONE|R|TAG_LOST", "2998|D|NONE|INFO|R|FOLLOWUP",
+        "3001|D|NONE|INFO|R|FOLLOWUP", "3002|P|PAYMENT|NONE|G|NONE", "3003|P|NONE|NONE|R|NONE", "3004|S|NONE|ENROLL|G|LINK", "3005|C|NONE|INFO|R|FOLLOWUP",
+        "3006|D|NONE|INFO|R|FOLLOWUP", "3007|D|NONE|ENROLL|R|FOLLOWUP", "3008|C|NONE|INFO,ENROLL|R|FOLLOWUP", "3009|D|NONE|ENROLL|R|FOLLOWUP", "3010|C|TIME|INFO|R|FOLLOWUP",
+        "3011|D|NONE|ENROLL|R|FOLLOWUP", "3012|D|NONE|ENROLL|NA|FOLLOWUP", "3016|D|NONE|NONE|NA|NONE", "3017|P|NONE|NONE|G|NONE", "3018|L|PRICE|INFO|R|FOLLOWUP",
+        "3019|L|NONE|NONE|G|TAG_LOST", "3020|D|NONE|ENROLL|R|FOLLOWUP", "3021|P|PAYMENT|NONE|G|NONE", "3023|P|NONE|NONE|NA|NONE"
+    ]
+};
+
+document.addEventListener('DOMContentLoaded', function () {
+    const logData = compactLogData.compact_log;
+    
+    // 1. DICIONÁRIO DE CÓDIGOS COMPLETOS (ETIQUETAS E DESCRIÇÕES)
+    const codebook_labels = {
+        funnel: { 'D': 'Descoberta', 'C': 'Consideração', 'S': 'Decisão', 'L': 'Perdido', 'P': 'Pós-Venda' },
+        objection: { 'PRICE': 'Preço', 'TIME': 'Tempo', 'TRUST': 'Confiança', 'NONE': 'Nenhuma' },
+        signal: { 'PAYMENT': 'Pagamento', 'ENROLL': 'Inscrição', 'INFO': 'Info Detalhada' },
+        agent: { 'G': 'Bom', 'R': 'Regular', 'P': 'Ruim', 'NA': 'N/A' },
+        action: { 'LINK': 'Enviar Link', 'FOLLOWUP': 'Acompanhar', 'CLARIFY': 'Esclarecer', 'TAG_LOST': 'Marcar Perdido', 'NONE': 'Nenhuma Ação' }
+    };
+
+    const codebook_descriptions = {
+        funnel: { 'D': 'O contato está no primeiro ponto de interação, fazendo perguntas genéricas ou vindo de um anúncio.', 'C': 'O lead está ativamente avaliando, comparando e fazendo perguntas específicas sobre o produto.', 'S': 'O lead demonstra clara intenção de compra, pedindo link ou negociando o pagamento.', 'L': 'O lead declarou que não vai comprar o produto no momento.', 'P': 'A interação ocorreu após a compra, geralmente relacionada a suporte ou onboarding.' },
+        objection: { 'PRICE': 'O lead considera o valor alto, pede desconto ou menciona o orçamento.', 'TIME': 'O lead alega falta de tempo, conflito de agenda ou quer adiar a decisão.', 'TRUST': 'O lead questiona a eficácia, o conteúdo ou a credibilidade do produto/empresa.', 'NONE': 'Nenhuma objeção clara foi declarada pelo cliente.' },
+        signal: { 'PAYMENT': 'O lead pergunta ativamente sobre formas de pagamento ou parcelamento.', 'ENROLL': 'O lead pede explicitamente o link para se inscrever ou finalizar a matrícula.', 'INFO': 'O lead faz perguntas específicas que demonstram interesse qualificado.' },
+        agent: { 'G': 'O agente foi eficiente, claro, contornou objeções e conduziu bem a conversa.', 'R': 'O agente executou o básico, mas demonstrou falhas ou passividade.', 'P': 'O agente ignorou o cliente, deu informações erradas ou gerou uma experiência negativa.', 'NA': 'Interação automatizada ou não aplicável a uma avaliação de performance.' },
+        action: { 'LINK': 'Ação imediata: fornecer o link de pagamento para finalizar a venda.', 'FOLLOWUP': 'O lead demonstrou interesse, mas não fechou. Agendar um contato futuro.', 'CLARIFY': 'O lead tem uma dúvida específica que impede a venda. A prioridade é esclarecer.', 'TAG_LOST': 'A oportunidade foi encerrada. Marcar como "perdido" no CRM.', 'NONE': 'Nenhuma ação de vendas é necessária (venda concluída, suporte resolvido, etc.).' }
+    };
+
+    // 2. LÓGICA PARA REMOVER DUPLICADOS, MANTENDO O ÚLTIMO REGISTRO
+    const uniqueLogs = {};
+    logData.forEach(log => {
+        const id = log.split('|')[0];
+        uniqueLogs[id] = log;
+    });
+    const dedupedLogData = Object.values(uniqueLogs);
+
+    // 3. TRANSFORMAÇÃO E PROCESSAMENTO DOS DADOS
+    const analysis = dedupedLogData.map(log => {
+        const parts = log.split('|');
+        if (parts.length < 6) return null;
+        return {
+            contactId: parts[0],
+            funnel_code: parts[1],
+            objection_code: parts[2],
+            signal_codes: parts[3].split(','),
+            agent_code: parts[4],
+            action_code: parts[5]
+        };
+    }).filter(item => item !== null);
+
+    // 4. CÁLCULOS GLOBAIS
+    const summary = {
+        totalDialogues: analysis.length,
+        funnelStages: {},
+        objections: {},
+        buyingSignals: {},
+        agentPerformance: {},
+        dialoguesWithObjections: 0,
+        dialoguesWithSignals: 0
+    };
+
+    analysis.forEach(item => {
+        const stage = codebook_labels.funnel[item.funnel_code] || 'Indefinido';
+        summary.funnelStages[stage] = (summary.funnelStages[stage] || 0) + 1;
+
+        if (item.objection_code !== 'NONE') {
+            summary.dialoguesWithObjections++;
+            const obj = codebook_labels.objection[item.objection_code] || item.objection_code;
+            summary.objections[obj] = (summary.objections[obj] || 0) + 1;
+        }
+        
+        if (item.signal_codes[0] !== 'NONE') {
+            summary.dialoguesWithSignals++;
+            item.signal_codes.forEach(code => {
+                const signal = codebook_labels.signal[code] || code;
+                summary.buyingSignals[signal] = (summary.buyingSignals[signal] || 0) + 1;
+            });
+        }
+
+        if (item.agent_code !== 'NA') {
+            const agentPerf = codebook_labels.agent[item.agent_code] || item.agent_code;
+            summary.agentPerformance[agentPerf] = (summary.agentPerformance[agentPerf] || 0) + 1;
+        }
+    });
+
+    const totalDialogues = summary.totalDialogues;
+    const conversionRate = (((summary.funnelStages['Decisão'] || 0)) / totalDialogues * 100).toFixed(1);
+    const lossRate = (((summary.funnelStages['Perdido'] || 0)) / totalDialogues * 100).toFixed(1);
+    const signalRate = (summary.dialoguesWithSignals / totalDialogues * 100).toFixed(1);
+    const objectionRate = (summary.dialoguesWithObjections / totalDialogues * 100).toFixed(1);
+    
+    const getTopFive = (obj) => Object.entries(obj).sort(([,a],[,b]) => b - a).slice(0, 5);
+
+    const topObjections = getTopFive(summary.objections);
+    const topSignals = getTopFive(summary.buyingSignals);
+    const sortedStages = Object.entries(summary.funnelStages).sort(([,a],[,b]) => b - a);
+    const sortedAgentPerf = Object.entries(summary.agentPerformance).sort(([,a],[,b]) => b - a);
+    
+    // 5. FUNÇÕES DE RENDERIZAÇÃO E CORES
+    const getStageColor = (stage) => {
+        const stageLower = stage.toLowerCase();
+        if (stageLower.includes('decisão')) return 'var(--success-color)';
+        if (stageLower.includes('consideração')) return 'var(--warning-color)';
+        if (stageLower.includes('descoberta')) return 'var(--info-color)';
+        if (stageLower.includes('perdido')) return 'var(--danger-color)';
+        return '#6c757d'; // Pós-Venda e outros
+    };
+
+    const getAgentColor = (perf) => {
+        const perfLower = perf.toLowerCase();
+        if (perfLower.includes('bom')) return 'var(--success-color)';
+        if (perfLower.includes('regular')) return 'var(--warning-color)';
+        if (perfLower.includes('ruim')) return 'var(--danger-color)';
+        return '#6c757d';
+    };
+
+    // 6. RENDERIZAÇÃO DO HTML
+    const dashboardContainer = document.getElementById('dashboard-container');
+    const tableContainer = document.getElementById('analysis-table-container');
+
+    let dashboardHTML = `
+        <div class="metrics-grid">
+            <div class="metric"><p class="metric-value">${totalDialogues}</p><p class="metric-label">Contatos Únicos Analisados</p></div>
+            <div class="metric"><p class="metric-value" style="color: var(--success-color);">${conversionRate}%</p><p class="metric-label">Taxa de Decisão</p></div>
+            <div class="metric"><p class="metric-value" style="color: var(--danger-color);">${lossRate}%</p><p class="metric-label">Taxa de Perda</p></div>
+            <div class="metric"><p class="metric-value" style="color: var(--info-color);">${signalRate}%</p><p class="metric-label">Taxa com Sinais</p></div>
+            <div class="metric"><p class="metric-value" style="color: var(--warning-color);">${objectionRate}%</p><p class="metric-label">Taxa com Objeções</p></div>
+        </div>
+        <div class="summary-grid">
+            <div class="summary-card">
+                <h3>Distribuição por Etapa do Funil</h3>
+                <table>${sortedStages.map(([stage, count]) => `<tr><td><span class="stage-badge" style="background-color: ${getStageColor(stage)};" title="${codebook_descriptions.funnel[Object.keys(codebook_labels.funnel).find(key => codebook_labels.funnel[key] === stage)] || ''}">${stage}</span></td><td>${count}</td></tr>`).join('')}</table>
+            </div>
+            <div class="summary-card">
+                <h3>Principais Objeções</h3>
+                <table>${topObjections.map(([obj, count]) => `<tr><td><span class="code-badge objection-code" title="${codebook_descriptions.objection[Object.keys(codebook_labels.objection).find(key => codebook_labels.objection[key] === obj)] || ''}">${obj}</span></td><td>${count}</td></tr>`).join('')}</table>
+            </div>
+            <div class="summary-card">
+                <h3>Principais Sinais de Compra</h3>
+                <table>${topSignals.map(([signal, count]) => `<tr><td><span class="code-badge signal-code" title="${codebook_descriptions.signal[Object.keys(codebook_labels.signal).find(key => codebook_labels.signal[key] === signal)] || ''}">${signal}</span></td><td>${count}</td></tr>`).join('')}</table>
+            </div>
+            <div class="summary-card">
+                <h3>Performance dos Agentes</h3>
+                <table>${sortedAgentPerf.map(([perf, count]) => `<tr><td><span class="agent-badge" style="background-color: ${getAgentColor(perf)};" title="${codebook_descriptions.agent[Object.keys(codebook_labels.agent).find(key => codebook_labels.agent[key] === perf)] || ''}">${perf}</span></td><td>${count}</td></tr>`).join('')}</table>
+            </div>
+        </div>`;
+    dashboardContainer.innerHTML = dashboardHTML;
+
+    let tableHTML = `<table class="data-table"><thead><tr><th>ID</th><th>Etapa do Funil</th><th>Objeção</th><th>Sinais de Compra</th><th>Performance Agente</th><th>Ação Recomendada</th></tr></thead><tbody>`;
+    analysis.forEach(item => {
+        const stageLabel = codebook_labels.funnel[item.funnel_code] || item.funnel_code;
+        const stageDesc = codebook_descriptions.funnel[item.funnel_code] || '';
+        const objectionLabel = codebook_labels.objection[item.objection_code] || item.objection_code;
+        const objectionDesc = codebook_descriptions.objection[item.objection_code] || '';
+        const agentLabel = codebook_labels.agent[item.agent_code] || item.agent_code;
+        const agentDesc = codebook_descriptions.agent[item.agent_code] || '';
+        const actionLabel = codebook_labels.action[item.action_code] || item.action_code;
+        const actionDesc = codebook_descriptions.action[item.action_code] || '';
+
+        const signalsHTML = item.signal_codes[0] === 'NONE' 
+            ? '<em>Nenhum</em>' 
+            : item.signal_codes.map(k => {
+                const label = codebook_labels.signal[k] || k;
+                const desc = codebook_descriptions.signal[k] || '';
+                return `<span class="code-badge signal-code" title="${desc}">${label}</span>`;
+            }).join('');
+        
+        const objectionHTML = objectionLabel === 'Nenhuma' 
+            ? '<em>Nenhuma</em>' 
+            : `<span class="code-badge objection-code" title="${objectionDesc}">${objectionLabel}</span>`;
+
+        tableHTML += `
+            <tr>
+                <td>#${item.contactId}</td>
+                <td><span class="stage-badge" style="background-color: ${getStageColor(stageLabel)};" title="${stageDesc}">${stageLabel}</span></td>
+                <td>${objectionHTML}</td>
+                <td>${signalsHTML}</td>
+                <td><span class="agent-badge" style="background-color: ${getAgentColor(agentLabel)};" title="${agentDesc}">${agentLabel}</span></td>
+                <td title="${actionDesc}">${actionLabel}</td>
+            </tr>
+        `;
+    });
+    tableHTML += '</tbody></table>';
+    tableContainer.innerHTML = tableHTML;
+});
+</script>
+
+</body>
+</html>

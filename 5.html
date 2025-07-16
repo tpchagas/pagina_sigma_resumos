@@ -1,0 +1,2124 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análise de Diálogos de Vendas</title>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --info-color: #17a2b8;
+            --light-gray: #f8f9fa;
+            --medium-gray: #e9ecef;
+            --dark-gray: #343a40;
+            --text-color: #212529;
+            --white: #fff;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 8px rgba(0,0,0,0.07);
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--light-gray);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+        }
+        .main-container {
+            max-width: 1200px;
+            margin: auto;
+            background: var(--white);
+            padding: 20px 30px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+        }
+        h1, h2 {
+            text-align: center;
+            color: var(--dark-gray);
+            margin-bottom: 30px;
+            border-bottom: 3px solid var(--primary-color);
+            padding-bottom: 15px;
+        }
+        h2 {
+            font-size: 1.8em;
+            color: var(--primary-color);
+            border-bottom-style: solid;
+            border-bottom-width: 2px;
+            margin-top: 40px;
+        }
+        #dashboard-container {
+            margin-bottom: 40px;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .metric {
+            background-color: #f1f8ff;
+            border: 1px solid #c8e1ff;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 2.5em;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin: 0;
+        }
+        .metric-label {
+            font-size: 1em;
+            color: #586069;
+            margin-top: 8px;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+        .summary-card {
+            background: #fff;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            border: 1px solid var(--medium-gray);
+        }
+        .summary-card h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            color: var(--dark-gray);
+            text-align: left;
+            border-bottom: 2px solid var(--medium-gray);
+            padding-bottom: 10px;
+        }
+        .summary-card table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .summary-card th, .summary-card td {
+            padding: 10px 5px;
+            text-align: left;
+            border-bottom: 1px solid var(--medium-gray);
+        }
+        .summary-card td:last-child {
+            text-align: right;
+            font-weight: 600;
+        }
+        .accordion-item {
+            border: 1px solid var(--medium-gray);
+            border-radius: var(--border-radius);
+            margin-bottom: 15px;
+            overflow: hidden;
+            transition: box-shadow 0.2s;
+        }
+        .accordion-item[open] { box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
+        .accordion-item summary {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            font-weight: 600;
+            cursor: pointer;
+            background-color: #fdfdff;
+        }
+        .accordion-item summary:hover { background-color: #f1f5ff; }
+        .accordion-item summary::-webkit-details-marker { display: none; }
+        .accordion-item summary::after { content: '▼'; font-size: 0.8em; transition: transform 0.2s ease-in-out; }
+        .accordion-item[open] > summary::after { transform: rotate(180deg); }
+        .accordion-item[open] > summary { border-bottom: 1px solid var(--medium-gray); }
+        .accordion-content { padding: 20px; background-color: var(--white); }
+        .contact-id { font-size: 1.2em; color: var(--primary-color); }
+        .funnel-stage, .stage-badge { padding: 5px 12px; border-radius: 15px; font-size: 0.9em; color: var(--white); text-align: center; min-width: 100px; display: inline-block; }
+        .accordion-content h4 { font-size: 1em; color: var(--primary-color); border: none; padding-bottom: 5px; margin-bottom: 10px; }
+        .key-message { background-color: #fffbe6; border-left: 5px solid #ffc107; padding: 15px; margin: 15px 0; border-radius: 0 5px 5px 0; }
+        .key-message p { margin: 0; white-space: pre-wrap; font-style: italic; }
+        .recommendation { background-color: #e8f7ff; border-left: 5px solid var(--info-color); padding: 15px; border-radius: 0 5px 5px 0; }
+        .list-item { padding: 10px; margin-bottom: 8px; border-radius: 4px; font-size: 0.95em; }
+        .signal { background-color: #e9f7ef; border-left: 3px solid var(--success-color); }
+        .objection { background-color: #fbebee; border-left: 3px solid var(--danger-color); }
+        ul { list-style: none; padding: 0; }
+        @media (max-width: 992px) { .summary-grid { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 768px) { .metrics-grid { grid-template-columns: 1fr 1fr; } .summary-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<div class="main-container">
+    <h1>Análise de Diálogos de Vendas</h1>
+    
+    <div id="dashboard-container">
+    </div>
+    
+    <hr>
+
+    <h2 id="details-title" style="display:none;">Análise Detalhada por Contato</h2>
+    <div id="analysis-container">
+    </div>
+</div>
+
+<script>
+const jsonDataString = `{
+    "dialogue_analysis": [
+        {
+            "contactId": "6",
+            "customer_journey": {
+                "funnel_stage": "Decisão (Vendido)",
+                "objections": [
+                    "Estou interessada em realizar a pós, porém ficou muito alto o valor da mensalidade"
+                ],
+                "buying_signals": [
+                    "Gostaria de realizar a matrícula da formação",
+                    "Pode ser em 2 cartões ?",
+                    "Esse link fica válido até amanhã ?",
+                    "Gostaria muitooooo posso deixar pra escolher depois?"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento chave foi quando o cliente levantou a objeção sobre o valor da mensalidade da Pós-graduação. Em vez de perder a venda, o agente habilmente ofereceu verificar com o financeiro e, em seguida, fez a transição para a Formação em tDCS, um produto de menor valor que se encaixava no orçamento e interesse do cliente, resultando na venda.",
+                "key_message_body": "Estou interessada em realizar a pós, porém ficou muito alto o valor da mensalidade"
+            },
+            "final_recommendation": "A performance do agente foi exemplar ao realizar um pivô de vendas eficaz frente a uma objeção de preço, convertendo um lead que poderia ser perdido. Recomenda-se treinar a equipe para identificar essas oportunidades de downsell/cross-sell. Melhorar a comunicação evitando mensagens duplicadas e quebrando textos longos pode aprimorar ainda mais a experiência do cliente."
+        },
+        {
+            "contactId": "8",
+            "customer_journey": {
+                "funnel_stage": "Perdido (Desqualificado)",
+                "objections": [
+                    "Já tenho formação em neuromodulação, tanto para tDCS como para TMS"
+                ],
+                "buying_signals": []
+            },
+            "key_moment_analysis": {
+                "description": "O momento decisivo foi a resposta do agente ('Perfeito 👍🏻') após o cliente afirmar que já tinha a formação. A resposta passiva encerrou a conversa e eliminou qualquer chance de explorar outras necessidades ou construir um relacionamento para futuras oportunidades.",
+                "key_message_body": "Perfeito 👍🏻"
+            },
+            "final_recommendation": "O agente deve ser treinado para engajar leads que se autodesqualificam. Ao invés de encerrar, deveria fazer perguntas abertas como 'Que ótimo! E há alguma técnica mais avançada que você tenha interesse em explorar no futuro?' para manter o lead no radar e identificar possíveis vendas de produtos de nicho ou futuros."
+        },
+        {
+            "contactId": "9",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "queria tirar algumas dúvidas com você ...",
+                    "O dr Alexandre faz atendimento presencial?",
+                    "Sim, consulta particular."
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento chave foi a pergunta do agente para qualificar a necessidade do cliente: 'mas vc quer uma consulta particular?'. Isso direcionou a conversa e confirmou a intenção do lead. A interação, no entanto, terminou abruptamente.",
+                "key_message_body": "Tem os atendimentos no laboratório da faculdade, mas vc quer uma consulta particular? Me explica melhor por favor"
+            },
+            "final_recommendation": "O agente iniciou bem ao qualificar a necessidade do cliente. No entanto, a conversa terminou sem um fechamento. O agente deveria ter um processo definido para encaminhar leads que buscam consultas, como: 'Entendido. Para consultas particulares, o procedimento é este...' e fornecer as instruções ou contato direto."
+        },
+        {
+            "contactId": "13",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Oi boa tarde. Estou a disposição para ajudar no que for necessário."
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O diálogo é uma intermediação entre uma terceira pessoa (Helen Kezia) e o Dr. Alexandre, não seguindo um fluxo de vendas padrão. O momento mais importante é quando o Dr. Alexandre se mostra disponível ('Estou a disposição para ajudar'), e o agente confirma o encaminhamento do contato.",
+                "key_message_body": "Oi boa tarde. Estou a disposição para ajudar no que for necessário."
+            },
+            "final_recommendation": "Para este tipo de interação, que envolve parcerias e contatos estratégicos, é recomendado um canal de comunicação separado do funil de vendas de cursos. A performance do agente foi funcional, mas o processo é confuso."
+        },
+        {
+            "contactId": "14",
+            "customer_journey": {
+                "funnel_stage": "Decisão (Lead Quente para Upsell)",
+                "objections": [
+                    "Dúvidas sobre a regulamentação do CRP",
+                    "Dúvidas sobre o funcionamento e aplicação dos aparelhos (Kubios, Heartrate)"
+                ],
+                "buying_signals": [
+                    "Então faço o básico agora e na sequência esse?",
+                    "É isso que eu quero",
+                    "Sou neuropsicóloga",
+                    "Estou ansiosa",
+                    "Faz sentido sim"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento chave ocorreu quando a cliente, já convencida do valor do upsell, apresentou dúvidas técnicas específicas sobre os aparelhos ('Tenho dúvidas sobre o aparelho Kubios?'). A resposta do agente 'Vou consultar nossa alista técnica' adiou a resolução e quebrou o ritmo da venda, deixando o lead em espera.",
+                "key_message_body": "Tenho dúvidas sobre o aparelho Kubios? Heartrate. Não encontrei ambos aplicativos. Existem vários tipos . Assim como não encontrei o do sono."
+            },
+            "final_recommendation": "O agente necessita de treinamento técnico sobre os produtos e equipamentos associados aos cursos. A incapacidade de responder dúvidas técnicas em tempo real gera atrito e risco de perda da venda, especialmente com leads quentes. Recomenda-se criar uma base de conhecimento de fácil acesso ou um canal de suporte técnico rápido para a equipe de vendas."
+        },
+        {
+            "contactId": "15",
+            "customer_journey": {
+                "funnel_stage": "N/A (Chat Interno)",
+                "objections": [],
+                "buying_signals": []
+            },
+            "key_moment_analysis": {
+                "description": "Este diálogo não é uma interação com um cliente, mas sim uma comunicação interna entre membros da equipe. Contém informações de leads, links de pagamento, e comentários sobre o desempenho de vendas ('Hj to afiado no TDCS, ja vendi 1 + vagal agora vai sair mais 2'). A análise padrão de cliente/agente não se aplica.",
+                "key_message_body": "Hj to afiado no TDCS, ja vendi 1 + vagal agora vai sair mais 2"
+            },
+            "final_recommendation": "Esta conversa deve ser desconsiderada da análise de performance de vendas. Evidência a necessidade de um sistema de CRM para gerenciar leads e comunicação interna, evitando a troca de informações sensíveis de clientes em chats desorganizados e garantindo a privacidade dos dados."
+        },
+        {
+            "contactId": "16",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Desejo finalizar minha matrícula no curso de tDCS!",
+                    "Vocês oferecem o equipamento??"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento decisivo foi a pergunta do cliente sobre o equipamento, seguida pela resposta do agente com o valor. A conversa parou nesse ponto, sugerindo que o custo do equipamento (R$ 6.039,00) pode ter sido um impeditivo não endereçado pelo agente.",
+                "key_message_body": "O valor está em R$ 6.039,00"
+            },
+            "final_recommendation": "Após informar o preço de um item de alto valor como o equipamento, o agente deve estar preparado para lidar com a reação do cliente. Em vez de encerrar a conversa, deveria fazer uma pergunta de acompanhamento, como: 'Este valor está dentro do que você esperava?' ou 'Oferecemos opções de parcelamento para o equipamento, gostaria de saber mais?'. A falta de follow-up resultou na perda do lead."
+        },
+        {
+            "contactId": "19",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Quero saber das condições"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente demonstrou claro interesse em um upsell ('Quero saber das condições'). O agente respondeu com uma oferta detalhada. No entanto, o envio duplicado da mesma mensagem e a falta de uma interação humana subsequente para fechar a venda deixaram a conversa no limbo.",
+                "key_message_body": "Quero saber das condições"
+            },
+            "final_recommendation": "Após enviar uma proposta de valor, é crucial um follow-up humano para personalizar a interação e conduzir ao fechamento. Por exemplo: 'Enviei os detalhes da condição especial. Conseguiu ver? Ficou alguma dúvida que eu possa ajudar a esclarecer?'. A automação é útil, mas o toque humano no momento da decisão é insubstituível."
+        },
+        {
+            "contactId": "21",
+            "customer_journey": {
+                "funnel_stage": "Perdido (Cliente já comprou)",
+                "objections": [
+                    "Já comprei",
+                    "Vou fazer"
+                ],
+                "buying_signals": []
+            },
+            "key_moment_analysis": {
+                "description": "O momento chave foi a resposta do cliente 'Já comprei'. O agente lidou bem, mas o contato inicial não deveria ter ocorrido.",
+                "key_message_body": "Já comprei"
+            },
+            "final_recommendation": "É crucial melhorar a segmentação da base de leads para que clientes que já compraram um determinado produto não recebam ofertas para o mesmo item. O agente reagiu corretamente, mas o erro está no processo de automação de marketing."
+        },
+        {
+            "contactId": "22",
+            "customer_journey": {
+                "funnel_stage": "Perdido",
+                "objections": [
+                    "Vou fazer mas agora não"
+                ],
+                "buying_signals": [
+                    "Gostaria de participar de seu grupo de watzap",
+                    "Tenho o TDCS e já gosto muito.",
+                    "Qual o valor do curso de tdcs avançado?"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente demonstrou interesse claro, mas adiou a decisão de compra com a frase 'Vou fazer mas agora não'. A resposta do agente 'Ok. Qualquer dúvida estamos à disposição' foi passiva e não estabeleceu um próximo passo concreto para o futuro.",
+                "key_message_body": "Vou fazer mas agora não"
+            },
+            "final_recommendation": "Quando um lead demonstra interesse mas posterga a compra, é fundamental agendar um follow-up. O agente deveria ter perguntado: 'Entendido. Qual seria um bom momento para voltarmos a conversar sobre isso?'. Isso mantém o lead aquecido e aumenta as chances de conversão futura."
+        },
+        {
+            "contactId": "23",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Gostaria de lhe enviar uma carta convite, para palestrar no I Congresso Multidiciplinar em Saúde"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento chave foi a solicitação do cliente para enviar um convite para palestra. O agente compreendeu a natureza da solicitação e agiu corretamente ao encaminhar para a pessoa responsável pela agenda, resolvendo a questão de forma eficaz.",
+                "key_message_body": "Gostaria de lhe enviar uma carta convite, para palestrar no I Congresso Multidiciplinar em Saúde, que acontecerá na cidade de Cataguases-MG"
+            },
+            "final_recommendation": "Excelente gerenciamento de uma solicitação que foge do script de vendas. O agente demonstrou bom senso e conhecimento da estrutura da equipe, direcionando o contato de forma rápida e eficiente. Este é um bom exemplo de como lidar com contatos de natureza diversa."
+        },
+        {
+            "contactId": "25",
+            "customer_journey": {
+                "funnel_stage": "Perdido (Risco de Reembolso)",
+                "objections": [
+                    "o curso fala sobre Dor cronica, fibromialgia, Parkinson",
+                    "Caso não tenha como me ensinar eu desejo cancelar",
+                    "Vou pedir meu advogado para falar com vcs amanhã",
+                    "Não tenho suporte do curso ?"
+                ],
+                "buying_signals": [
+                    "Tenho interesse no curso de Neuromodulacao e doutorado",
+                    "Quando inicia",
+                    "Valor"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento decisivo foi a reclamação pós-compra da cliente, sentindo-se enganada por não encontrar o conteúdo específico sobre Autismo e TDAH que havia sido o motivo da compra. A falha em alinhar as expectativas sobre onde e quando o conteúdo estaria disponível foi a causa raiz da crise.",
+                "key_message_body": "Pode sim redirecionar \\nPode sim redirecionar \\nPor gentileza \\nMais vc não entendeu AINDA que eu acessei o curso e que dentro do link NÃO ENTRA no grupo do WhatsApp, e que o curso fala especificamente de dor crônica, fibromialgia e Parkinson, e ANTES de comprar eu perguntei se seria explicado sobre AUTISMO, TDAH e ansiedade \\nEu tinha outras opções de curso optei por vcs e estou me sentindo enganada"
+            },
+            "final_recommendation": "Este caso é um alerta crítico sobre a importância do alinhamento de expectativas. O agente de vendas precisa ser treinado para explicar exatamente o que o cliente encontrará, onde e quando. É essencial um processo de onboarding claro para novos alunos, com instruções precisas sobre acesso a materiais, grupos e liberação de módulos. A gestão de crise pós-venda também precisa ser aprimorada, com um canal de suporte técnico mais ágil e eficaz."
+        },
+        {
+            "contactId": "30",
+            "customer_journey": {
+                "funnel_stage": "Decisão (Vendido e Upsell Realizado)",
+                "objections": [],
+                "buying_signals": [
+                    "Gostaria de mais informações, me interesso pelo tema.",
+                    "Feito",
+                    "Estou interessada na estimulação do nervo vago.",
+                    "Esse valor de 2.197 posso fazer em 12x no cartão?",
+                    "Feito 🌷"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento chave foi a segunda iniciativa da cliente, já como aluna: 'Boa tarde 🌷 Estou interessada na estimulação do nervo vago. 😊🌷👍🏻'. Isso abriu a porta para um upsell que o agente executou perfeitamente, fornecendo as informações e facilitando a nova compra.",
+                "key_message_body": "Boa tarde 🌷 Estou interessada na estimulação do nervo vago. 😊🌷👍🏻"
+            },
+            "final_recommendation": "Este é um exemplo de excelência em vendas e relacionamento. O agente transformou um lead interessado em um cliente e, em seguida, em um cliente recorrente. O processo de identificar o interesse do cliente por um segundo produto e conduzir a nova venda deve ser usado como modelo de treinamento para a equipe."
+        },
+        {
+            "contactId": "31",
+            "customer_journey": {
+                "funnel_stage": "Decisão (Vendido)",
+                "objections": [
+                    "Eu acredito que seja na mesma data do meu módulo de osteopatia",
+                    "Não entendi o valor, poderia me explicar"
+                ],
+                "buying_signals": [
+                    "Qual o curso de entrada para quem quer iniciar com a neuromodulação",
+                    "Olá, tenho interesse em realizar os 2 cursos",
+                    "Com a parte on line já consigo iniciar os atendimentos com neuromodulação?",
+                    "Fiz o pagamento e recebi o acesso",
+                    "Faltou o vagal"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento decisivo foi a negociação do pacote. Após enviar um link com valor errado, o agente se corrigiu, buscou uma condição especial com o financeiro e apresentou uma oferta clara e vantajosa para a compra dos dois cursos, superando a confusão inicial e fechando a venda.",
+                "key_message_body": "De fato o link compartilhado está com o valor errado.\\nEu consegui com o Financeiro uma condição especial pra vc para aquisição dos 2 cursos."
+            },
+            "final_recommendation": "Ótima performance do agente, que soube qualificar, negociar, contornar objeções e resolver problemas pós-venda. O erro inicial no link de pagamento deve servir de alerta para maior atenção aos detalhes, mas a recuperação foi impecável. Este diálogo é um bom exemplo de venda consultiva e resolução de problemas."
+        },
+        {
+            "contactId": "32",
+            "customer_journey": {
+                "funnel_stage": "Decisão (Vendido)",
+                "objections": [
+                    "Não posso fazer hoje, vou entrar em contato com você segunda-feira",
+                    "Que desconto você consegue? Vou ter que comprar o aparelho 😅"
+                ],
+                "buying_signals": [
+                    "Gostaria de falar com o suporte para maiores informações",
+                    "No curso aborda a aplicação em crianças e adultos?",
+                    "Amanhã, por favor, pode enviar o cronograma com as aulas on-line?",
+                    "se eu tiver alguma dúvida tenho suporte?"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento decisivo foi a negociação do desconto. Após o cliente sinalizar a necessidade de comprar o aparelho, o agente foi proativo, verificou com o financeiro e retornou com um desconto significativo de R$1.000,00, o que foi crucial para selar a venda.",
+                "key_message_body": "Olha, consegui com o Financeiro R$ 1.000,00 de desconto 😉🙌🏻"
+            },
+            "final_recommendation": "Excelente exemplo de como combinar automação para nutrição e atendimento humano para o fechamento. A habilidade do agente em negociar e conseguir um desconto foi fundamental. O processo de follow-up após o cliente pedir para adiar a decisão também foi bem executado, mostrando paciência e persistência."
+        },
+        {
+            "contactId": "34",
+            "customer_journey": {
+                "funnel_stage": "Perdido (Problema de Acesso)",
+                "objections": [
+                    "Não acessei porque não recebi. Olhei no spam e não está."
+                ],
+                "buying_signals": [
+                    "Sim. Mas não iniciei o curso da neuromodulacao no Tea. Como iniciar?"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento decisivo foi a persistência do cliente em não conseguir acessar o curso que já havia pago ('Boa tarde!! Não acessei porque não recebi.'). A incapacidade do agente de resolver prontamente este problema técnico de pós-venda gerou frustração e resultou na perda de engajamento do cliente.",
+                "key_message_body": "Boa tarde!! Não acessei porque não recebi. Olhei no spam e não está. Você poderia me enviar? Pra iniciar o curso de neuromodulacao no TEA?"
+            },
+            "final_recommendation": "Problemas de pós-venda, especialmente de acesso ao produto, devem ter prioridade máxima. É necessário um processo mais ágil para resolver essas questões. O agente deveria ter escalado o problema para uma equipe de suporte técnico imediatamente e garantido que o acesso fosse liberado, ao invés de deixar a conversa sem solução."
+        },
+        {
+            "contactId": "35",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "A pós? Valores...",
+                    "Bom dia! Sou neuropsicopedagoga, já fiz diversas especializações e fiz interessada na pós.",
+                    "Vou analisar sim..obrigada"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente demonstrou interesse claro na Pós-Graduação, solicitando informações de valores. O agente forneceu todas as informações, e o cliente entrou em fase de análise. Este é o ponto onde a conversa foi pausada.",
+                "key_message_body": "Bom dia! Sou neuropsicopedagoga, já fiz diversas especializações e fiz interessada na pós. Gostaria de saber informações de valores"
+            },
+            "final_recommendation": "O agente conduziu bem a fase de apresentação do produto. Quando o cliente entra em fase de análise ('Vou analisar'), é fundamental que o agente estabeleça um próximo passo. Uma pergunta como 'Claro! Que tal eu retornar em alguns dias para vermos se ficou alguma dúvida?' poderia manter o lead engajado e aumentar a chance de conversão."
+        },
+        {
+            "contactId": "37",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "vi que vcs estão lançando uma turma no Rio de Janeiro, vcs podem me dar mais detalhes, tipo a localização do curso?",
+                    "Oi Dennis, apesar de ser mais longe pra mim, acredito que pra lá me organizo melhor"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente demonstrou um forte interesse em participar da turma presencial do Rio de Janeiro, mesmo sendo mais longe. A conversa, no entanto, não progrediu para a inscrição.",
+                "key_message_body": "Oi Dennis, apesar de ser mais longe pra mim, acredito que pra lá me organizo melhor"
+            },
+            "final_recommendation": "O cliente mostrou um forte sinal de compra. O agente deveria ter aproveitado o momento para incentivar a matrícula, talvez mencionando que as vagas são limitadas ou oferecendo ajuda para finalizar a inscrição. Um follow-up alguns dias depois também seria indicado."
+        },
+        {
+            "contactId": "39",
+            "customer_journey": {
+                "funnel_stage": "Perdido",
+                "objections": [
+                    "Só p fisioterapeutas?"
+                ],
+                "buying_signals": [
+                    "Desejo finalizar minha matrícula no curso de tDCS!"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente iniciou com um forte sinal de compra ('Desejo finalizar minha matrícula'), mas depois expressou uma dúvida que indicava uma possível objeção ('Só p fisioterapeutas?'). Embora o agente tenha esclarecido a dúvida, a enxurrada de informações duplicadas e a falta de uma pergunta de fechamento fizeram a conversa esfriar.",
+                "key_message_body": "Só p fisioterapeutas?"
+            },
+            "final_recommendation": "É crucial manter a conversa engajada após responder a uma objeção. Em vez de apenas enviar blocos de texto, o agente poderia ter respondido e perguntado: 'Não, o curso é para diversos profissionais da saúde. Podemos prosseguir com sua matrícula?'. A comunicação deve ser mais concisa e direta, evitando mensagens duplicadas."
+        },
+        {
+            "contactId": "40",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Gostaria de saber mais informações"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente, que já é aluno, expressou interesse em um upsell ('Gostaria de saber mais informações'). O agente respondeu com um template de vendas duplicado, o que pode ter soado impessoal e não deu continuidade à conversa de forma eficaz.",
+                "key_message_body": "Gostaria de saber mais informações"
+            },
+            "final_recommendation": "Quando um cliente existente pede mais informações sobre um upsell, a abordagem deve ser mais personalizada. Em vez de enviar um template duplicado, o agente deveria ter iniciado um diálogo, respondendo à solicitação e fazendo perguntas para entender melhor o interesse do cliente, conduzindo a conversa para um fechamento."
+        },
+        {
+            "contactId": "41",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Desejo saber mais sobre a Pós graduação",
+                    "As aulas são presenciais em São Paulo?"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente demonstrou interesse na pós e fez uma pergunta qualificadora sobre o formato. O agente respondeu, mas a conversa não avançou, indicando uma oportunidade perdida de aprofundar o diálogo e levar o cliente à decisão.",
+                "key_message_body": "As aulas são presenciais em São Paulo?"
+            },
+            "final_recommendation": "Após responder a uma pergunta direta do cliente, o agente deve sempre tentar manter a conversa fluindo com outra pergunta. Por exemplo: 'Sim, as aulas são majoritariamente online com 2 encontros presenciais em SP. Esse formato funciona para você?'. Isso convida o cliente a continuar o diálogo."
+        },
+        {
+            "contactId": "42",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Gostaria de informações sobre o curso de tDCS"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente iniciou a conversa com um pedido claro de informações. O agente respondeu enviando todo o material de uma vez, mas não engajou em uma conversa para qualificar o interesse ou guiar para os próximos passos.",
+                "key_message_body": "Gostaria de informações sobre o curso de tDCS"
+            },
+            "final_recommendation": "Evitar o 'despejo de informações'. O ideal é enviar as informações de forma mais dosada e interativa. Após enviar os detalhes iniciais, o agente poderia perguntar: 'Fez sentido para você? Gostaria de saber mais sobre a parte prática?'. Isso mantém a conversa e permite ao agente entender melhor as necessidades do cliente."
+        },
+        {
+            "contactId": "43",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Olá desejo entrar na lista de espera da Pós!",
+                    "Olá. Sim! Gostaria de informações"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A cliente demonstrou interesse em dois momentos distintos: primeiro na Pós e depois em 'mais informações' sobre uma oferta de upsell. Em ambos os casos, a resposta do agente foi automática e massiva, sem criar uma conversa real para levar a cliente à decisão.",
+                "key_message_body": "Olá. Sim! Gostaria de informações"
+            },
+            "final_recommendation": "A automação precisa ser mais inteligente e segmentada para não confundir o cliente com múltiplas ofertas. Quando um cliente responde a uma automação demonstrando interesse, um agente humano deveria assumir a conversa para personalizá-la e conduzir ao fechamento, em vez de disparar outro template de vendas."
+        },
+        {
+            "contactId": "44",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Bom dia",
+                    "Gostaria de mais detalhes"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente expressou interesse ('Gostaria de mais detalhes'), mas a resposta foi uma mensagem de vendas longa e duplicada, sem qualquer toque pessoal. A falta de engajamento humano após o sinal de interesse do cliente é o ponto de falha.",
+                "key_message_body": "Gostaria de mais detalhes"
+            },
+            "final_recommendation": "É imperativo que a equipe de vendas monitore as respostas às automações. Quando um lead pede 'mais detalhes', é um sinal para um agente intervir, personalizar a comunicação e guiar o cliente. Depender exclusivamente de templates para fechar vendas de alto valor é ineficaz."
+        },
+        {
+            "contactId": "45",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [
+                    "fora a pós graduação vcs tem outro curso que eu possa atuar com a neuromodulação? sou fisioterapeuta e estou entrando na graduação de TO, queria muito fazer essa pós, mas infelizmente no momento vai ficar puxado mesmo a mensalidade",
+                    "qual seria o local do curso na cidade de sp?"
+                ],
+                "buying_signals": [
+                    "trabalho com neurodesenvolvimento infantil",
+                    "isso"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento chave foi a objeção de preço da cliente sobre a Pós Graduação. O agente, em vez de perder o lead, qualificou-o e ofereceu uma alternativa mais acessível (curso de tDCS). Posteriormente, ao perceber que o pagamento ainda era um desafio, negociou uma condição especial de parcelamento no boleto, demonstrando grande flexibilidade e foco na solução.",
+                "key_message_body": "fora a pós graduação vcs tem outro curso que eu possa atuar com a neuromodulação? ...queria muito fazer essa pós, mas infelizmente no momento vai ficar puxado mesmo a mensalidade"
+            },
+            "final_recommendation": "Esta é uma conversa modelo de venda consultiva. O agente ouviu a necessidade do cliente, contornou a objeção de preço com uma alternativa viável (downsell) e ainda foi flexível nas condições de pagamento. Este processo deve ser estudado e replicado pela equipe como um exemplo de excelência."
+        },
+        {
+            "contactId": "48",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Qual seria o valor?"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente demonstrou interesse claro ao perguntar 'Qual seria o valor?'. No entanto, a pergunta foi completamente ignorada, e a conversa terminou sem resposta, representando uma falha grave no atendimento.",
+                "key_message_body": "Qual seria o valor?"
+            },
+            "final_recommendation": "É inaceitável que uma pergunta direta sobre preço, um claro sinal de compra, seja ignorada. O sistema de automação ou o processo do agente falhou completamente. É crucial garantir que todas as perguntas dos clientes sejam respondidas, especialmente as que indicam intenção de compra. A falta de resposta resultou na perda imediata do lead."
+        },
+        {
+            "contactId": "50",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "ok",
+                    "Sim"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente, já aluno, responde 'Sim' para a pergunta 'Faz sentido para você?' sobre uma oferta de upsell. Este era o momento para um agente humano entrar na conversa e fechar a venda. A falta de ação após este sinal de compra é o ponto de falha.",
+                "key_message_body": "Sim"
+            },
+            "final_recommendation": "A automação é útil para o nurturing, mas quando um cliente dá um sinal de compra claro, a interação humana é essencial para a conversão. A equipe de vendas precisa ser notificada para assumir a conversa nesses momentos. A dependência excessiva de automação está resultando em oportunidades de venda perdidas."
+        },
+        {
+            "contactId": "51",
+            "customer_journey": {
+                "funnel_stage": "Decisão (Vendido)",
+                "objections": [
+                    "Axei o curso de Heg da Neurowork MT fraco, fiquei com MTS duvidas"
+                ],
+                "buying_signals": [
+                    "Fiz curso de tdcs pela Neurowork com vc, e fiquei encantada",
+                    "Mas sinto que precisaria de mais conhecimento, técnicas, protocolos, possibilidades... Etc",
+                    "Como funciona essa pós?",
+                    "Excelente",
+                    "Isso está ok?",
+                    "Posso pagar?",
+                    "Procede essa forma de pagamento?",
+                    "Entusiasmada"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento chave foi quando a cliente, já muito interessada, perguntou sobre uma forma de pagamento específica que viu no Instagram. A confirmação rápida e segura do agente ('Sim, está correto. É pela plataforma TMB 👍🏻') deu a confiança final para a cliente efetuar a compra.",
+                "key_message_body": "Procede essa forma de pagamento?"
+            },
+            "final_recommendation": "Excelente condução de uma venda com uma cliente já aquecida e com alto nível de confiança. O agente demonstrou segurança e conhecimento, fatores essenciais para fechar vendas de alto valor. Manter a equipe atualizada sobre todas as formas de pagamento e plataformas parceiras é fundamental."
+        },
+        {
+            "contactId": "53",
+            "customer_journey": {
+                "funnel_stage": "Perdido",
+                "objections": [
+                    "No momento nao estou me condições financeiras para tal. Fica na agenda de desejos....."
+                ],
+                "buying_signals": [
+                    "Essa é Jacqueline uma conhecida está interessada no curso de tDCS , indicada da Marta pode chamar ela por gentileza e passar os detalhes certinhos por favor?"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento decisivo foi a objeção financeira clara da cliente: 'No momento nao estou me condições financeiras para tal'. A resposta do agente foi um simples 'Ok, boa tarde! 😊👍🏻', perdendo a oportunidade de nutrir o lead para o futuro ou oferecer uma alternativa.",
+                "key_message_body": "Boa tarde.  No momento nao estou me condições financeiras para tal.  Fica na agenda de desejos.....  Obrigada."
+            },
+            "final_recommendation": "A automação deve ser pausada quando um cliente expressa desinteresse explícito. Além disso, diante de uma objeção financeira, o agente deveria ter um script para tentar reengajar, como 'Entendo perfeitamente. Temos outras opções de cursos mais acessíveis, teria interesse em conhecer?' ou 'Posso entrar em contato novamente daqui a alguns meses?'. A interação foi passiva demais."
+        },
+        {
+            "contactId": "54",
+            "customer_journey": {
+                "funnel_stage": "Perdido",
+                "objections": [
+                    "Agora não"
+                ],
+                "buying_signals": [
+                    "Já paguei",
+                    "Pode informar os equipamentos que podemos usar",
+                    "Fiz o TDAH e agora fazendo o TEA , estou me habilitando para atuar. Sou Neuropsicológo",
+                    "Valores e aparelho..."
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "Após uma longa sequência de nutrição e interesse em múltiplos produtos, o cliente finalmente declara 'Agora não' para a oferta de upsell do curso tDCS Híbrido. A resposta do agente foi adequada ('Ok 👍🏻😊'), mas a longa jornada mostra um lead engajado que ainda não converteu para o produto de maior valor.",
+                "key_message_body": "Agora não"
+            },
+            "final_recommendation": "Este é um lead quente que deve ser mantido em uma lista de nutrição prioritária. Embora a venda não tenha sido fechada, o histórico de compras e engajamento é alto. Recomenda-se um follow-up humano e personalizado em 1-2 meses, talvez com uma nova oferta ou conteúdo específico para suas áreas de interesse (TDAH e TEA)."
+        },
+        {
+            "contactId": "55",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Olá! Desejo finalizar minha matrícula no curso de tDCS!"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente expressou intenção de compra direta e fez uma pergunta ('Sobre o curso vc tem alguma dúvida?'), mas não obteve resposta. A falta de acompanhamento do agente é o ponto de falha que resultou na perda do lead.",
+                "key_message_body": "Sobre o curso vc tem alguma dúvida?"
+            },
+            "final_recommendation": "É inadmissível deixar um cliente que deseja 'finalizar a matrícula' sem resposta. A falha no atendimento é total. É necessário revisar os processos de atribuição e acompanhamento de leads para garantir que nenhuma solicitação de compra seja ignorada."
+        },
+        {
+            "contactId": "56",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Ok",
+                    "Sim"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente, já aluno, responde 'Sim' ao ser questionado se a oferta de upsell 'Faz sentido para você?'. Este é um claro sinal de compra que foi completamente ignorado por um agente humano, deixando a oportunidade passar.",
+                "key_message_body": "Sim"
+            },
+            "final_recommendation": "Novamente, um caso de excesso de automação e falta de intervenção humana. A equipe precisa de um sistema para ser notificada quando um lead dá um sinal de compra tão explícito, para que um vendedor possa assumir a conversa e realizar o fechamento."
+        },
+        {
+            "contactId": "57",
+            "customer_journey": {
+                "funnel_stage": "Perdido",
+                "objections": [
+                    "Eu tenho muito interesse em aprofundar e me tornar expert em Neuromodulação. Mas ainda estou pagando a formação que fiz... e ainda comprei o Microestim Genius. São muitos investimentos."
+                ],
+                "buying_signals": [
+                    "Quais são as condições?"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento decisivo foi a objeção financeira da cliente, que, apesar do grande interesse, explicou que já tinha muitos investimentos recentes. A resposta do agente foi educada, mas poderia ter criado uma oportunidade futura.",
+                "key_message_body": "Eu tenho muito interesse em aprofundar e me tornar expert em Neuromodulação. Mas ainda estou pagando a formação que fiz, que por sinal foi excelente e bastante robusta, e ainda comprei o Microestim Genius. São muitos investimentos. Mas estou acompanhando bem de perto o Dr. Alexandre"
+            },
+            "final_recommendation": "A cliente é um lead muito qualificado e com alto potencial de compra futura. Além de encerrar a conversa educadamente, o agente deveria ter adicionado a cliente a uma lista de nutrição especial ou perguntado: 'Entendo completamente. Gostaria que eu entrasse em contato novamente em 3 ou 6 meses para vermos se a situação mudou?'. É uma perda deixar um lead tão quente sem um plano de follow-up."
+        },
+        {
+            "contactId": "58",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Qual o valor do aparelho?",
+                    "Boa noite,  vou fazer  minha inscrição , mas gostaria de uma indicação  de aparelho  para mapeamento cerebral.",
+                    "Tenho interesse",
+                    "Sim",
+                    "Com o aparelho"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A conversa é marcada pela confusão. O cliente inicialmente busca informações sobre o curso tDCS, depois compra o curso TEA, e mesmo assim continua recebendo ofertas e informações sobre outros produtos. O ponto chave é a falta de um fluxo de vendas claro e uma segmentação adequada de clientes.",
+                "key_message_body": "Realizado o pagamento para o curso neuromodulacao no TEA"
+            },
+            "final_recommendation": "O processo de vendas precisa ser mais organizado. Após uma compra, o cliente deve ser movido para uma lista de 'clientes' e receber uma comunicação de onboarding, não mais ofertas do mesmo nível. A confusão entre os diferentes produtos (TEA, tDCS, Pós) prejudica a experiência do cliente. Simplificar a jornada e melhorar a segmentação é fundamental."
+        },
+        {
+            "contactId": "59",
+            "customer_journey": {
+                "funnel_stage": "Perdido",
+                "objections": [
+                    "Essa pós não ensina ?",
+                    "Já pago 650 de pós"
+                ],
+                "buying_signals": []
+            },
+            "key_moment_analysis": {
+                "description": "O momento decisivo foi a objeção da cliente ('Essa pós não ensina ?'), que revelou uma falha na segmentação de marketing. A cliente já estava matriculada na Pós-Graduação e recebeu uma oferta para um curso cujo conteúdo deveria estar incluso, causando confusão.",
+                "key_message_body": "Essa pós não ensina ?"
+            },
+            "final_recommendation": "É crucial refinar a segmentação de marketing para evitar oferecer produtos a clientes que já têm acesso a eles através de pacotes maiores (como a Pós-Graduação). Isso evita confusão, objeções e uma percepção negativa da marca. O agente lidou bem com a situação, mas o erro de processo deve ser corrigido."
+        },
+        {
+            "contactId": "60",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Bom tarde! O curso tem quantas horas?",
+                    "Pode enviar mais informações, por favor?"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente pediu mais informações e o agente respondeu com um template de venda longo e duplicado. A falta de uma interação humana para guiar o cliente após este ponto deixou a conversa estagnada.",
+                "key_message_body": "Pode enviar mais informações, por favor?"
+            },
+            "final_recommendation": "A equipe precisa ser mais proativa após um cliente pedir informações. A automação pode iniciar o contato, mas um agente humano deve assumir para personalizar a abordagem, tirar dúvidas e conduzir o lead pelo funil de decisão, em vez de apenas enviar um bloco de texto e esperar."
+        },
+        {
+            "contactId": "61",
+            "customer_journey": {
+                "funnel_stage": "Decisão (Vendido)",
+                "objections": [],
+                "buying_signals": [
+                    "Faz",
+                    "Libera o link"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento chave foi a resposta direta da cliente 'Faz' seguida de 'Libera o link', indicando que estava pronta para comprar. O agente agiu rapidamente e enviou o link de pagamento, convertendo o interesse em venda de forma eficiente.",
+                "key_message_body": "Libera o link"
+            },
+            "final_recommendation": "Este é um bom exemplo de como a automação pode gerar uma oportunidade de venda que é rapidamente capitalizada por um agente atento. O fluxo foi rápido e eficaz. O único ponto a melhorar é refinar os templates para evitar duplicação."
+        },
+        {
+            "contactId": "62",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Sim"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente respondeu positivamente à pergunta 'Faz sentido para você?'. Este sinal claro de interesse não foi seguido por uma ação de um agente humano para finalizar a venda. A conversa parou aí.",
+                "key_message_body": "Sim"
+            },
+            "final_recommendation": "Automatizar a oferta inicial é bom, mas o fechamento da venda, especialmente para produtos de maior valor, requer intervenção humana. A equipe de vendas precisa de um processo para ser alertada e assumir a conversa quando um lead dá um sinal de compra tão claro."
+        },
+        {
+            "contactId": "63",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Ola",
+                    "Gostaria de mais informações"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente pediu mais informações e recebeu como resposta um template de venda longo e duplicado. Não houve diálogo, apenas um envio de informações em massa, o que não é eficaz para converter um lead.",
+                "key_message_body": "Gostaria de mais informações"
+            },
+            "final_recommendation": "A estratégia de vendas deve ser mais conversacional. Quando um lead solicita informações, é uma oportunidade para iniciar um diálogo, entender suas necessidades e apresentar a solução de forma personalizada, não apenas enviar um material de marketing genérico."
+        },
+        {
+            "contactId": "64",
+            "customer_journey": {
+                "funnel_stage": "Perdido (Insatisfação)",
+                "objections": [
+                    "Eu comprei o produto Mais não gostei nada"
+                ],
+                "buying_signals": [
+                    "fiquei com duvida precisa de material pra trabalahar com esse conteudo qual seria"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento decisivo foi a declaração de insatisfação total do cliente: 'Eu comprei o produto Mais não gostei nada'. A incapacidade do agente de entender e resolver a queixa levou à perda do cliente e a um sentimento negativo.",
+                "key_message_body": "Eu comprei o produto \\nMais não gostei nada"
+            },
+            "final_recommendation": "A gestão de clientes insatisfeitos precisa ser uma prioridade. É necessário um protocolo claro para lidar com essas situações, que pode incluir escalar para um gerente ou para o suporte ao cliente. Deixar um cliente insatisfeito sem solução é prejudicial para a reputação da marca. É preciso entender a fundo a causa da insatisfação para evitar que aconteça com outros clientes."
+        },
+        {
+            "contactId": "65",
+            "customer_journey": {
+                "funnel_stage": "Perdido (Informação Incorreta)",
+                "objections": [
+                    "É este mesmo que faz a vagal e que você indica ?"
+                ],
+                "buying_signals": [
+                    "Eu quero o aparelho",
+                    "Já peguei o curso à vista pelo PIX"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A cliente já havia comprado o curso e estava tentando adquirir o aparelho recomendado, mas recebeu informações conflitantes do agente ('Nós não vendemos aparelhos, mas indicamos...'). Essa falta de clareza e orientação sobre um passo essencial para a prática do curso gerou uma experiência negativa.",
+                "key_message_body": "Nós não vendemos aparelhos, mas indicamos a empresa e o fornecedor que comercializa durante o curso"
+            },
+            "final_recommendation": "A equipe de vendas e suporte precisa ter informações claras e consistentes sobre a aquisição de equipamentos essenciais para os cursos. Os clientes não podem ficar desorientados sobre como adquirir as ferramentas necessárias. Um guia de compra de equipamentos deveria ser parte do material de boas-vindas do curso."
+        },
+        {
+            "contactId": "66",
+            "customer_journey": {
+                "funnel_stage": "Decisão",
+                "objections": [],
+                "buying_signals": [
+                    "Faz sentido sim!"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A cliente respondeu positivamente à oferta de upsell com 'Faz sentido sim!'. Este era o momento perfeito para o agente intervir pessoalmente, mas a resposta foi apenas o reenvio automático do mesmo texto de venda, o que quebrou o fluxo da conversão.",
+                "key_message_body": "Faz sentido sim!"
+            },
+            "final_recommendation": "Automatizar ofertas é eficiente, mas a conversão final muitas vezes exige um toque humano. Quando um lead dá um sinal de compra claro, o processo deve acionar um agente para que ele possa conduzir pessoalmente o fechamento, em vez de repetir a automação."
+        },
+        {
+            "contactId": "67",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Ok"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A interação foi puramente uma sequência de mensagens automáticas de marketing. A resposta monossilábica do cliente não foi suficiente para engajá-lo, e não houve tentativa de criar um diálogo real por parte do agente.",
+                "key_message_body": "Ok"
+            },
+            "final_recommendation": "Para produtos de alto valor, a estratégia de vendas não pode se basear apenas em automação. É preciso criar pontos de contato humano para construir relacionamento, entender as necessidades do cliente e apresentar a solução de forma consultiva. Este fluxo é um exemplo de nutrição que não evolui para conversão por falta de interação."
+        },
+        {
+            "contactId": "68",
+            "customer_journey": {
+                "funnel_stage": "Perdido (Já comprou)",
+                "objections": [
+                    "Eu vou fazer o curso presencial no Rio de Janeiro em agosto"
+                ],
+                "buying_signals": []
+            },
+            "key_moment_analysis": {
+                "description": "O cliente informou que já estava inscrito para o curso presencial, invalidando a oferta de upsell. O contato não deveria ter sido feito.",
+                "key_message_body": "Eu vou fazer o curso presencial no Rio de Janeiro em agosto"
+            },
+            "final_recommendation": "Revisar e aprimorar a segmentação da base de contatos é fundamental. Clientes já inscritos em um curso específico não devem receber novas ofertas para o mesmo produto. Isso evita ruído na comunicação e melhora a experiência do cliente."
+        },
+        {
+            "contactId": "69",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Sim"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A cliente respondeu 'Sim' à pergunta 'Faz sentido para você?', um claro sinal de interesse na oferta de upsell. No entanto, a automação continuou com o envio duplicado da mesma mensagem, sem que um agente humano assumisse para converter a oportunidade.",
+                "key_message_body": "Sim"
+            },
+            "final_recommendation": "Implementar um sistema de notificação para a equipe de vendas quando um lead responde positivamente a uma oferta automatizada. A intervenção humana é crucial para capitalizar esses momentos de interesse e guiar o cliente até o fechamento da compra."
+        },
+        {
+            "contactId": "70",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [
+                    "Minha dúvida antes foi a questão do treino tb na Cervical, se naobera mais para uso do fisioterapeuta"
+                ],
+                "buying_signals": [
+                    "Eu trabalho com neurofeedback e gostaria de agregar o treino de nervo vago",
+                    "Como quero fazer o curso de TDCS, estou avaliando o que seria melhor eu fazer primeiro para oferecer sessão multimodal",
+                    "Sim"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente levantou uma dúvida crucial sobre o escopo de prática profissional ('se o curso não está mais voltado para fisioterapeuta'). O agente não conseguiu responder a essa questão, que é um ponto decisivo para o cliente. A conversa se perdeu em meio a outras ofertas automáticas.",
+                "key_message_body": "Mas minha pergunta é se o curso não está mais voltado para fisioterapeuta, já que usa aquelas plaquinha pretas."
+            },
+            "final_recommendation": "A equipe de vendas precisa de treinamento sobre as regulamentações e escopos de prática das diferentes profissões que compõem seu público-alvo. Não saber responder a uma pergunta tão fundamental sobre a aplicabilidade do curso demonstra falta de preparo e pode levar à perda de vendas. O ideal seria ter uma FAQ detalhada sobre essas questões."
+        },
+        {
+            "contactId": "71",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Sim. Faz sentido.",
+                    "Quero conhecer a proposta.",
+                    "Por favor."
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A cliente demonstrou interesse claro em avançar ('Quero conhecer a proposta. Por favor.'). A resposta do agente foi enviar novamente, de forma duplicada, o mesmo script de vendas. Faltou um toque pessoal para engajar a cliente e responder a possíveis dúvidas que ela pudesse ter.",
+                "key_message_body": "Quero conhecer a proposta."
+            },
+            "final_recommendation": "Quando um cliente pede para 'conhecer a proposta', é um convite para um diálogo de vendas, não para o reenvio de um texto automático. O agente deveria ter respondido de forma pessoal, por exemplo: 'Ótimo! Além do que descrevi, o que mais você gostaria de saber para tomar sua decisão?'. Essa abordagem consultiva é mais eficaz."
+        },
+        {
+            "contactId": "72",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Oi, Denis! Qt seria e em qts vezes?"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente demonstrou um forte sinal de compra ao perguntar diretamente sobre preço e parcelamento. O agente respondeu com a informação, mas a conversa parou aí, indicando uma oportunidade perdida de fechamento.",
+                "key_message_body": "Oi, Denis! Qt seria e em qts vezes?"
+            },
+            "final_recommendation": "Uma pergunta sobre preço e parcelamento coloca o lead na fase de decisão. Após fornecer os valores, o agente deve fazer uma pergunta de fechamento, como 'Essas condições funcionam para você? Posso liberar o link para garantir sua vaga?'. A ausência dessa etapa deixa a venda em aberto."
+        },
+        {
+            "contactId": "73",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Qual o valor?"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A cliente perguntou 'Qual o valor?', um sinal de interesse direto. A resposta foi um longo template duplicado com a oferta. Não houve interação humana para transformar esse interesse em uma venda.",
+                "key_message_body": "Qual o valor?"
+            },
+            "final_recommendation": "O padrão se repete: um lead interessado é respondido com automação massiva em vez de um diálogo personalizado. Para aumentar a conversão, é essencial que agentes humanos assumam as conversas quando um cliente faz uma pergunta sobre preço."
+        },
+        {
+            "contactId": "74",
+            "customer_journey": {
+                "funnel_stage": "Perdido (Problema de Acesso)",
+                "objections": [
+                    "E até agora não consegui acessar",
+                    "Bom dia acabei de verificar que não recebi"
+                ],
+                "buying_signals": [
+                    "Sim"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O ponto crítico foi a dificuldade da cliente em acessar um curso já comprado ('E até agora não consegui acessar'). A falta de uma solução rápida para esse problema de pós-venda, somada ao recebimento de novas ofertas, gerou uma péssima experiência.",
+                "key_message_body": "Eu já comprei esse\\nE até agora não consegui acessar"
+            },
+            "final_recommendation": "Os problemas de pós-venda precisam de um canal de suporte dedicado e eficiente. É inaceitável que um cliente pago fique sem acesso ao produto. Além disso, a automação de marketing deve ser pausada para clientes que estão com um ticket de suporte aberto para evitar mais frustração."
+        },
+        {
+            "contactId": "75",
+            "customer_journey": {
+                "funnel_stage": "Decisão (Reembolso Solicitado)",
+                "objections": [
+                    "Os conteúdos das demais técnicas de Neuromodulação para TEA não está dentro do meu propósito de trabalho.",
+                    "Infelizmente não tenho interesse em dá continuidade."
+                ],
+                "buying_signals": [
+                    "Desejo fazer o curso Neuromodulação TEA",
+                    "Os 397,00 pode ser em duas vezes?"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento decisivo foi o pedido de reembolso da cliente ('Infelizmente não tenho interesse em dá continuidade.'), um dia após a compra, por perceber que o conteúdo não atendia ao seu propósito. Isso indica uma falha no processo de venda em qualificar o lead e alinhar as expectativas sobre o conteúdo do curso.",
+                "key_message_body": "Há possibilidade de trocar de curso pois confesso que o mais me interessa é o exclusivo Tdcs para TEA"
+            },
+            "final_recommendation": "É crucial qualificar melhor os leads para garantir que o produto oferecido corresponda às suas expectativas e necessidades. Quando um cliente compra um curso de nicho (TEA), as tentativas de upsell devem ser feitas com cuidado e após garantir a satisfação com o produto inicial. O pedido de reembolso é um sinal claro de que a venda não foi bem-sucedida, mesmo que o pagamento tenha sido processado."
+        },
+        {
+            "contactId": "76",
+            "customer_journey": {
+                "funnel_stage": "Perdido",
+                "objections": [
+                    "No momento nao estou me condições financeiras para tal. Fica na agenda de desejos....."
+                ],
+                "buying_signals": [
+                    "Eu já fiz o curso . Estive até presencialmente em SP...."
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A cliente, que já é ex-aluna e já havia manifestado desinteresse por razões financeiras, foi contatada novamente com as mesmas ofertas automáticas. Isso demonstra uma falha no CRM ou na gestão de contatos.",
+                "key_message_body": "Bom dia. Eu já fiz o curso . Estive até presencialmente em SP...."
+            },
+            "final_recommendation": "É essencial que o histórico do cliente seja registrado e consultado antes de novos contatos. Enviar ofertas repetidas para ex-alunos que já expressaram objeções cria uma experiência negativa. A base de contatos precisa ser higienizada e segmentada corretamente."
+        },
+        {
+            "contactId": "77",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Sim"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente respondeu positivamente à oferta de upsell, mas a conversa foi inundada por automações duplicadas, sem que um agente humano interviesse para capitalizar o interesse e fechar a venda.",
+                "key_message_body": "Sim"
+            },
+            "final_recommendation": "A automação deve ser uma ferramenta para iniciar conversas, não para substituí-las inteiramente. Leads que demonstram interesse precisam de atenção humana para serem convertidos, especialmente em vendas de produtos com ticket mais alto."
+        },
+        {
+            "contactId": "78",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Quero saber mais"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente pediu para 'saber mais', um convite claro para um diálogo. A resposta foi um envio duplicado do mesmo script de vendas, o que não atende à solicitação e torna a interação impessoal e ineficaz.",
+                "key_message_body": "Quero saber mais"
+            },
+            "final_recommendation": "É preciso criar um processo onde o pedido de 'mais informações' acione um agente de vendas para que ele possa qualificar o lead e apresentar a solução de forma consultiva, respondendo a dúvidas específicas, em vez de depender apenas de automação."
+        },
+        {
+            "contactId": "79",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [
+                    "Tenho interesse sim, só fico preocupada pois meu interesse maior é em aplicação no TEA."
+                ],
+                "buying_signals": [
+                    "Por isso me inscrevi inicialmente no online específico de TEA"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento decisivo foi a objeção da cliente, que expressou preocupação sobre o foco do curso ser suficiente para sua área de interesse (TEA). O agente ignorou completamente essa preocupação e respondeu com um script de vendas genérico, falhando em criar confiança e resolver a dúvida da cliente.",
+                "key_message_body": "Tenho interesse sim, só fico preocupada pois meu interesse maior é em aplicação no TEA. Em outros cursos o foco maior foi em déficits motores, parkinson e AVC"
+            },
+            "final_recommendation": "É fundamental que os agentes leiam e respondam às preocupações específicas dos clientes. Ignorar uma objeção e responder com um template é a forma mais rápida de perder uma venda. O agente deveria ter validado a preocupação e explicado como o curso aborda o TEA de forma aprofundada, por exemplo: 'Entendo sua preocupação. O curso de tDCS tem um módulo inteiro dedicado a protocolos para TEA e TDAH, além de estudos de caso práticos. Posso te detalhar essa parte?'."
+        },
+        {
+            "contactId": "80",
+            "customer_journey": {
+                "funnel_stage": "Decisão (Vendido)",
+                "objections": [
+                    "Achei q estava inscrito nesse???",
+                    "Não é?"
+                ],
+                "buying_signals": [
+                    "Como posso acessar a programação completa do curso assim como o local da parte prática?",
+                    "Uma vez tendo concluido o curso estarei apto para a realização do procedimento na clínica?",
+                    "Técnica e legalmente?",
+                    "Boa noite Denis, fiz a inscrição no curso, paguei, o banco confirmou o pagamento, porém não recebi nada no meu email."
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "Toda a interação pós-compra foi um momento chave. O cliente teve diversas dúvidas sobre acesso, material, cadastro e até sobre o próprio curso em que estava inscrito. A paciência e a capacidade do agente em resolver cada um desses pontos foram cruciais para garantir uma boa experiência e evitar um cancelamento.",
+                "key_message_body": "Boa noite Denis, fiz a inscrição no curso, paguei, o banco confirmou o pagamento, porém não recebi nada no meu email. Nem no Spam. Você poderia verifica para mim, por favor? obrigado"
+            },
+            "final_recommendation": "Excelente exemplo de suporte pós-venda. O agente foi fundamental para garantir que o cliente tivesse uma boa experiência após a compra. A falha na automação que gerou confusão deve ser corrigida, mas a performance do agente em lidar com as consequências foi muito boa. Um bom onboarding é tão importante quanto a venda em si."
+        },
+        {
+            "contactId": "81",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Gostaria de saber mais sobre os cursos"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente pediu para saber mais sobre os cursos. O agente respondeu com uma lista completa, mas não deu o passo seguinte de perguntar qual deles interessava mais ao cliente para aprofundar a conversa.",
+                "key_message_body": "Gostaria de saber mais sobre os cursos"
+            },
+            "final_recommendation": "Após apresentar um portfólio de produtos, o agente deve guiar o cliente. Uma pergunta como 'Algum desses cursos chamou mais a sua atenção?' ou 'Qual sua área de atuação para que eu possa te recomendar o melhor ponto de partida?' ajudaria a dar continuidade à venda."
+        },
+        {
+            "contactId": "82",
+            "customer_journey": {
+                "funnel_stage": "Perdido (Já comprou)",
+                "objections": [
+                    "Bom dia Denis, eu já estou fazendo o curso de tdcs. Já assisti a todas as aulas e agora tem a pratica que vai ser dia 16 e 17 de agosto aqui no Rio"
+                ],
+                "buying_signals": []
+            },
+            "key_moment_analysis": {
+                "description": "A cliente informou que já estava fazendo o curso que estava sendo oferecido. O contato de venda foi desnecessário e gerado por uma falha no sistema de automação.",
+                "key_message_body": "Bom dia Denis, eu já estou fazendo o curso de tdcs. Já assisti a todas as aulas e agora tem a pratica que vai ser dia 16 e 17 de agosto aqui no Rio"
+            },
+            "final_recommendation": "Reforça a necessidade urgente de segmentar corretamente a base de clientes. Enviar ofertas de produtos que o cliente já possui prejudica a experiência e desperdiça recursos. O agente lidou bem com a situação, mas o problema é processual."
+        },
+        {
+            "contactId": "83",
+            "customer_journey": {
+                "funnel_stage": "Perdido (Já comprou)",
+                "objections": [
+                    "Já estou matriculada na Pós Graduação que começa em Agosto"
+                ],
+                "buying_signals": [
+                    "Já me matriculei! Ansiosa pra começar! 😍"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A cliente informou que já estava matriculada no curso de maior valor (Pós-Graduação), tornando as ofertas de cursos menores irrelevantes. A falha de segmentação da base de contatos é evidente.",
+                "key_message_body": "Já estou matriculada na Pós Graduação que começa em Agosto"
+            },
+            "final_recommendation": "A segmentação de clientes é um ponto crítico a ser melhorado. Clientes da Pós-Graduação, que é o produto mais completo, não deveriam receber ofertas de cursos introdutórios ou cujos conteúdos já estão inclusos em sua formação. A correção desse processo é prioritária."
+        },
+        {
+            "contactId": "84",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Posso fazer on LINE e aplicar até presencial ou é somente prática?",
+                    "Bom Dia, por favor, pode me enviar o link de inscrição do curso on LINE?",
+                    "Bom Dia, sim, faz sentido"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente demonstrou interesse em diferentes momentos, culminando na resposta 'Bom Dia, sim, faz sentido' para uma oferta de upsell. Este sinal de compra claro não foi aproveitado, pois a conversa foi seguida por mais automações em vez de uma abordagem de fechamento humana.",
+                "key_message_body": "Bom Dia, sim, faz sentido"
+            },
+            "final_recommendation": "É crucial treinar a equipe para identificar os momentos em que a automação deve cessar e a interação humana deve começar. Um sinal de compra como 'faz sentido' é um gatilho claro para um agente assumir a conversa, tirar as dúvidas finais e enviar o link de pagamento, em vez de deixar a automação continuar."
+        },
+        {
+            "contactId": "85",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Ok",
+                    "M envia mais informações"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A cliente pediu 'M envia mais informações', mas a resposta foi um template de vendas longo e repetido. A ausência de um diálogo personalizado para atender à solicitação da cliente foi o ponto de falha.",
+                "key_message_body": "M envia mais informações"
+            },
+            "final_recommendation": "A estratégia de vendas deve ser revisada para incluir mais interação humana. O envio massivo de templates não substitui uma conversa consultiva, que é necessária para converter leads interessados em clientes, especialmente para produtos de alto valor."
+        },
+        {
+            "contactId": "86",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Bom dia",
+                    "M envia mais informações"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A cliente pediu mais informações e recebeu uma resposta automática e duplicada. A falta de um follow-up humano para qualificar o interesse e tirar dúvidas deixou a oportunidade de venda estagnada.",
+                "key_message_body": "M envia mais informações"
+            },
+            "final_recommendation": "Para melhorar as taxas de conversão, é fundamental que a equipe de vendas assuma as conversas quando um lead solicita mais informações. A automação deve ser o ponto de partida, não a totalidade da interação de vendas."
+        },
+        {
+            "contactId": "87",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Olá gostaria de saber sobre essa pós pra iniciantes.",
+                    "E também sobre o equipamento da Brainpro",
+                    "Ok"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento crítico foi a reclamação da cliente sobre a percepção de baixo valor em um curso anterior e o medo de ser enganada novamente. A resposta do agente foi defensiva ('Que novidade você esperava dentro do curso?') em vez de empática, e a orientação para tirar dúvidas técnicas na plataforma não resolveu a frustração da cliente no momento.",
+                "key_message_body": "Olá desejo saber se essa pós que paguei vai ensinar como aplicar a neuromodulacao ou vai apenas falar e dar embasamentos teóricos. Pq depois recebi propaganda de um curso de TDCs que parecia mais pratico e o valor de aproximadamente 5000,00. Essa pós de mais de 10000,00 vai ter o mesmo conteúdo? Já estou ficando com medo de ter sido enganada. Pq o curso de TDCs para autista. De 350,00 até agora não teve muita novidade. Achei caro pra uma propaganda de vcs mesmos."
+            },
+            "final_recommendation": "É vital lidar com reclamações de clientes de forma empática e resolutiva. A resposta do agente foi reativa. Deveria ter validado a preocupação da cliente e explicado claramente a estrutura da pós e como ela se diferencia dos outros cursos. O time de vendas precisa de treinamento em gestão de conflitos e em como transformar uma experiência negativa em positiva."
+        },
+        {
+            "contactId": "88",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Olá tenho interesse na pós graduação pois estou iniciando meus estudos .Fiz a inscrição no curso neuromodulacao no TEA",
+                    "Sim"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A cliente, já aluna de um curso inicial, manifestou interesse direto na Pós-Graduação. O agente enviou as informações, mas depois o fluxo parece ter sido dominado por ofertas automáticas de um curso intermediário (tDCS), sem uma condução clara para a matrícula na Pós.",
+                "key_message_body": "Olá tenho interesse na pós graduação pois estou iniciando meus estudos .Fiz a inscrição no curso neuromodulacao no TEA"
+            },
+            "final_recommendation": "Quando um cliente manifesta interesse em um produto premium como a Pós-Graduação, a conversa deveria ser imediatamente assumida por um vendedor sênior ou ter um tratamento prioritário. O uso de automações genéricas nesse estágio pode diminuir a percepção de valor e perder a oportunidade de venda."
+        },
+        {
+            "contactId": "91",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": []
+            },
+            "key_moment_analysis": {
+                "description": "Não houve uma conversa real, apenas uma sequência de mensagens automáticas enviadas pelo agente sem qualquer resposta do cliente.",
+                "key_message_body": "N/A"
+            },
+            "final_recommendation": "Este contato não gerou uma conversa e deve ser classificado como 'não engajado'. A estratégia de envio de mensagens automáticas deve ser revista para este segmento de leads, talvez com abordagens diferentes para tentar gerar uma resposta."
+        },
+        {
+            "contactId": "93",
+            "customer_journey": {
+                "funnel_stage": "Perdido (Já comprou)",
+                "objections": [
+                    "Bom dia! Excelente, obrigado!"
+                ],
+                "buying_signals": []
+            },
+            "key_moment_analysis": {
+                "description": "O cliente acabou de receber a mensagem de boas-vindas ao curso e, logo em seguida, recebeu uma oferta de upsell. A interação foi puramente automatizada e o cliente não engajou com a nova oferta.",
+                "key_message_body": "Bom dia! Excelente, obrigado!"
+            },
+            "final_recommendation": "O timing para ofertas de upsell é crucial. Oferecer um novo produto imediatamente após a compra do primeiro, antes que o cliente tenha tido a chance de consumir o conteúdo e perceber seu valor, é uma estratégia ineficaz e pode ser vista como agressiva. É preciso criar um período de maturação antes de fazer novas ofertas."
+        },
+        {
+            "contactId": "98",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "tenho uma duvida...quanto ao certificado",
+                    "no final é emitido um certificado?",
+                    "Ok"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente tinha uma dúvida simples sobre a certificação, que foi prontamente respondida pelo agente. No entanto, a oportunidade de continuar a conversa e construir rapport foi perdida, sendo substituída por automações de vendas.",
+                "key_message_body": "no final é emitido um certificado?"
+            },
+            "final_recommendation": "Após resolver uma dúvida do cliente, o agente deveria tentar engajar em uma conversa mais aprofundada antes de iniciar um fluxo de upsell. Uma pergunta como 'Ótimo! Além do certificado, há mais alguma coisa que você gostaria de saber sobre o curso?' poderia abrir portas para entender melhor as necessidades do cliente."
+        },
+        {
+            "contactId": "99",
+            "customer_journey": {
+                "funnel_stage": "Decisão (Vendido)",
+                "objections": [
+                    "Eu não so não posso fazer a pós né?"
+                ],
+                "buying_signals": [
+                    "Sou técnica de enfermagem posso fazer curso?",
+                    "Gostaria de fazer curso",
+                    "Sim ja entrei",
+                    "Vou efetuar inscrição",
+                    "Neuromodulacao é vida",
+                    "Perfeitooooooooooooo tudo agora so assistir as aulas muito obrigada 🫱🏿‍🫲🏽"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento chave foi quando a cliente, uma técnica de enfermagem, perguntou se poderia fazer o curso. A resposta afirmativa do agente removeu a principal barreira e levou diretamente à decisão de compra, com a cliente mostrando grande entusiasmo.",
+                "key_message_body": "Sou técnica de enfermagem posso fazer curso?"
+            },
+            "final_recommendation": "Ótima condução de venda. O agente foi claro, assertivo e soube lidar com as questões de elegibilidade da cliente, resultando em uma compra e uma cliente muito satisfeita. Este é um bom exemplo de como responder a dúvidas sobre pré-requisitos pode destravar uma venda."
+        },
+        {
+            "contactId": "101",
+            "customer_journey": {
+                "funnel_stage": "Perdido",
+                "objections": [],
+                "buying_signals": [
+                    "Olá Denis gostaria de saber quantas horas aula de curso e também se ele está vendendo o curso de estimulação binaural",
+                    "Olá boa noite. Estou precisando de uma orientação. Já tenho o curso de Neuromodulação tDCS e TMS, porém gostaria de alguma referência bibliografica que indique o TDCS para TEA para que eu possa enviar para um psiquiatra."
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento decisivo foi o pedido de ajuda técnica da cliente: 'gostaria de alguma referência bibliografica que indique o TDCS para TEA para que eu possa enviar para um psiquiatra'. Esta era uma grande oportunidade de agregar valor e fortalecer o relacionamento. A falta de resposta a este pedido é uma falha crítica.",
+                "key_message_body": "Olá boa noite.\\nEstou precisando de uma orientação.\\nJá tenho o curso de Neuromodulação tDCS e TMS, porém gostaria de alguma referência bibliografica que indique o TDCS para TEA para que eu possa enviar para um psiquiatra.\\nVcs conseguem me ajudar?"
+            },
+            "final_recommendation": "O suporte ao cliente, especialmente para alunos, deve ser uma prioridade. Ignorar um pedido de ajuda e, em vez disso, enviar mais propaganda, destrói a confiança e o relacionamento. É fundamental ter um processo para encaminhar dúvidas técnicas para a equipe adequada e garantir que todos os clientes recebam suporte."
+        },
+        {
+            "contactId": "103",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Sou estudante de psicologia eu posso fazer esse curso? Terei o certificado"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A cliente fez uma pergunta crucial sobre sua elegibilidade para fazer o curso como estudante de psicologia. A pergunta foi completamente ignorada, e o fluxo de automação continuou, resultando na perda do lead.",
+                "key_message_body": "Sou estudante de psicologia eu posso fazer esse curso? Terei o certificado"
+            },
+            "final_recommendation": "É imperativo responder a todas as perguntas dos clientes, especialmente aquelas sobre elegibilidade, que são barreiras diretas à compra. O sistema precisa ser configurado para alertar um agente humano quando uma pergunta é feita, para que ela possa ser respondida adequadamente. Ignorar o cliente é a pior estratégia possível."
+        },
+        {
+            "contactId": "104",
+            "customer_journey": {
+                "funnel_stage": "N/A (Não Engajado)",
+                "objections": [],
+                "buying_signals": []
+            },
+            "key_moment_analysis": {
+                "description": "Não houve uma conversa real. O cliente respondeu com uma mensagem automática indicando outro número para contato profissional, e o fluxo de automação do agente continuou no número original, sem sucesso.",
+                "key_message_body": "Olá. Esse número será usado exclusivamente para assuntos pessoais. Caso necessite alguma demanda profissional, para que possamos atendê-lo melhor, por favor entrar em contato pelo número 84.991663396."
+            },
+            "final_recommendation": "Quando um cliente fornece um canal de contato alternativo, ele deve ser utilizado. Continuar enviando mensagens para um número que o cliente indicou como pessoal é ineficaz e pode ser invasivo. O processo deve ser atualizado para respeitar a preferência de contato do cliente."
+        },
+        {
+            "contactId": "106",
+            "customer_journey": {
+                "funnel_stage": "Perdido (Insatisfação)",
+                "objections": [
+                    "Comprei o curso",
+                    "Assisti 3 aulas a aula 4 e 5 estão fechada",
+                    "Gostaria de um retorno sobre, senão irei fazer uma reclamação no reclame aqui",
+                    "Então é uma propaganda enganosa"
+                ],
+                "buying_signals": []
+            },
+            "key_moment_analysis": {
+                "description": "O momento crítico foi a reclamação da cliente sobre o bloqueio de parte do conteúdo, que ela considerou propaganda enganosa. A resposta inicial do agente, focada no 'direito do autor' em vez da experiência do cliente, escalou negativamente a situação.",
+                "key_message_body": "Então é uma propaganda enganosa"
+            },
+            "final_recommendation": "A comunicação de marketing e vendas precisa estar perfeitamente alinhada com a entrega do produto. Se o conteúdo é liberado progressivamente, isso deve ser informado de forma clara e transparente no momento da compra. Além disso, a equipe de atendimento precisa ser treinada para lidar com clientes frustrados com empatia, validando seus sentimentos antes de apresentar a lógica contratual."
+        },
+        {
+            "contactId": "107",
+            "customer_journey": {
+                "funnel_stage": "N/A (Não Engajado)",
+                "objections": [],
+                "buying_signals": [
+                    "Ok"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "Não houve um diálogo significativo, apenas uma sequência de mensagens automáticas com uma resposta monossilábica do cliente.",
+                "key_message_body": "N/A"
+            },
+            "final_recommendation": "Este contato não evoluiu para uma conversa de vendas. A estratégia de automação para este perfil de lead precisa ser revista para incentivar um maior engajamento."
+        },
+        {
+            "contactId": "109",
+            "customer_journey": {
+                "funnel_stage": "N/A (Não Engajado)",
+                "objections": [],
+                "buying_signals": [
+                    "Vamos juntos!!!!"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente respondeu com entusiasmo à mensagem de boas-vindas, mas a conversa não foi continuada por um agente humano e seguiu com mais automações, perdendo a oportunidade de criar um relacionamento.",
+                "key_message_body": "Vamos juntos!!!!"
+            },
+            "final_recommendation": "Uma resposta entusiasmada como 'Vamos juntos!!!!' é um excelente gancho para iniciar uma conversa humana e personalizada, fortalecendo o relacionamento com o novo aluno e abrindo portas para futuras oportunidades de upsell. A dependência excessiva de automação desperdiçou essa chance."
+        },
+        {
+            "contactId": "112",
+            "customer_journey": {
+                "funnel_stage": "Decisão (Vendido)",
+                "objections": [
+                    "Qual vc indicaria para HD",
+                    "Qual tamanho seria mais usual?"
+                ],
+                "buying_signals": [
+                    "bom dia, esse curso é on line ou presencial?",
+                    "qto é?e ficará gravado?",
+                    "Onde faço a inscrição?"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A cliente demonstrou claro interesse e comprou o curso. O ponto de fricção ocorreu no pós-venda, quando ela fez perguntas técnicas sobre equipamentos e o agente não conseguiu responder, orientando-a a perguntar no grupo. Embora a venda tenha sido concluída, essa falta de suporte técnico direto pode impactar a experiência do cliente.",
+                "key_message_body": "Qual vc indicaria para HD"
+            },
+            "final_recommendation": "A equipe de vendas deve ter um conhecimento básico sobre os equipamentos relacionados aos cursos ou um canal de consulta rápido com a equipe técnica. Direcionar o cliente para um grupo para tirar dúvidas técnicas pode ser visto como uma forma de evasão e diminuir a confiança do cliente no pós-venda."
+        },
+        {
+            "contactId": "115",
+            "customer_journey": {
+                "funnel_stage": "Perdido (Cliente já comprou)",
+                "objections": [
+                    "Já paguei"
+                ],
+                "buying_signals": []
+            },
+            "key_moment_analysis": {
+                "description": "A cliente informou que 'Já paguei' em resposta a uma mensagem de recuperação de carrinho, indicando uma falha de sincronia no sistema de automação.",
+                "key_message_body": "Já paguei"
+            },
+            "final_recommendation": "É preciso garantir que o sistema de automação identifique os pagamentos em tempo real para interromper as mensagens de recuperação de carrinho. Enviar lembretes para quem já pagou gera uma experiência ruim e confusa para o cliente."
+        },
+        {
+            "contactId": "117",
+            "customer_journey": {
+                "funnel_stage": "Decisão (Vendido)",
+                "objections": [],
+                "buying_signals": [
+                    "Vou terminar a inscrição"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente sinalizou a intenção de finalizar a compra em resposta a uma mensagem automática. O fluxo funcionou como esperado, mas a conversão poderia ser garantida com um toque humano após esse sinal.",
+                "key_message_body": "Vou terminar a inscrição"
+            },
+            "final_recommendation": "A automação para recuperação de carrinho está funcionando, mas para aumentar a eficácia, um agente poderia intervir após o cliente confirmar a intenção de comprar, oferecendo ajuda ou tirando dúvidas finais para garantir a conversão."
+        },
+        {
+            "contactId": "122",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [
+                    "Manaus não temos turmas",
+                    "não estou conseguindo ter acesso as minhas apostilas"
+                ],
+                "buying_signals": [
+                    "Eu acabei me perdendo nas datas das aulas práticas",
+                    "Poderia me passar ?"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A cliente, que já é aluna, estava buscando informações sobre a parte prática e relatou um problema de acesso ao material ('não estou conseguindo ter acesso as minhas apostilas'). A conversa se tornou confusa e o problema não foi claramente resolvido, sendo interrompido por ofertas automáticas.",
+                "key_message_body": "Uma outra situação é que não estou conseguindo ter acesso as minhas apostilas"
+            },
+            "final_recommendation": "A gestão de suporte ao aluno precisa ser mais eficiente e centralizada. É crucial resolver problemas de acesso ao material de forma prioritária. O envio de ofertas de upsell para um cliente que está com um problema pendente é contraproducente. É preciso pausar as automações de vendas até que a questão do suporte seja resolvida."
+        },
+        {
+            "contactId": "125",
+            "customer_journey": {
+                "funnel_stage": "N/A (Não Engajado)",
+                "objections": [],
+                "buying_signals": [
+                    "Estou com dúvidas,quero mais informações sobre o workshop neuromodulação não-invasiva!",
+                    "Olá , eu comprei para TDAH 397 e não recebi nenhuma interação do curso . Podes me informar?"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente expressou dúvidas e, mais criticamente, informou que não recebeu o acesso a um curso que comprou. Nenhuma dessas mensagens recebeu uma resposta humana; o fluxo de automação continuou enviando conteúdo genérico. Isso representa uma falha completa no atendimento.",
+                "key_message_body": "Olá , eu comprei para TDAH 397 e não recebi nenhuma interação do curso . Podes me informar?"
+            },
+            "final_recommendation": "É urgente implementar um sistema que pause as automações e alerte um agente humano quando um cliente faz uma pergunta ou relata um problema. Ignorar um cliente que já pagou e não recebeu o produto é extremamente prejudicial para a reputação e pode levar a chargebacks e reclamações públicas."
+        },
+        {
+            "contactId": "383",
+            "customer_journey": {
+                "funnel_stage": "N/A (Não Engajado)",
+                "objections": [],
+                "buying_signals": [
+                    "Olá desejo entrar na lista de espera da Pós!"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente expressou um desejo claro: 'Olá desejo entrar na lista de espera da Pós!'. Esta solicitação foi completamente ignorada. Em vez disso, o cliente recebeu uma enxurrada de mensagens automáticas de boas-vindas a cursos que ele não comprou.",
+                "key_message_body": "Olá desejo entrar na lista de espera da Pós!"
+            },
+            "final_recommendation": "O sistema de automação está com falhas graves de lógica e segmentação. É preciso criar um fluxo específico para capturar leads para a lista de espera. Além disso, o envio de múltiplas mensagens de boas-vindas a cursos diferentes para o mesmo contato indica um erro de configuração que precisa ser corrigido com urgência para não prejudicar a experiência do usuário."
+        },
+        {
+            "contactId": "393",
+            "customer_journey": {
+                "funnel_stage": "N/A (Não Engajado)",
+                "objections": [],
+                "buying_signals": []
+            },
+            "key_moment_analysis": {
+                "description": "Não houve diálogo, apenas o envio de templates de marketing por parte do agente.",
+                "key_message_body": "N/A"
+            },
+            "final_recommendation": "Este contato não gerou uma conversa. A eficácia da abordagem de marketing para este lead deve ser reavaliada, pois não gerou engajamento."
+        },
+        {
+            "contactId": "394",
+            "customer_journey": {
+                "funnel_stage": "N/A (Não Engajado)",
+                "objections": [],
+                "buying_signals": []
+            },
+            "key_moment_analysis": {
+                "description": "Não houve uma conversa. Apenas envio de mensagens automáticas.",
+                "key_message_body": "N/A"
+            },
+            "final_recommendation": "O lead não engajou com a campanha de automação. Recomenda-se analisar o perfil do lead para entender se a oferta é adequada ou se uma abordagem diferente seria mais eficaz."
+        },
+        {
+            "contactId": "395",
+            "customer_journey": {
+                "funnel_stage": "Perdido (Problema de Acesso)",
+                "objections": [
+                    "Ola. Neste link direciona para outro curso. Como procedo?",
+                    "Aparece ali com cadeado"
+                ],
+                "buying_signals": [
+                    "Fiz inscrição para neuromodulação no tea"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O ponto crítico foi o problema de acesso relatado pela cliente ('Neste link direciona para outro curso. Como procedo?'). A incapacidade do agente de fornecer uma solução imediata, enquanto o sistema continuava enviando novas ofertas, criou uma experiência frustrante.",
+                "key_message_body": "Ola. Neste link direciona para outro curso. Como procedo?"
+            },
+            "final_recommendation": "Problemas de acesso de clientes pagantes devem ter tratamento prioritário e imediato. O agente deveria ter um protocolo claro para resolver essa questão, como verificar o e-mail de compra e reenviar o link correto, em vez de deixar a cliente sem solução. As automações de vendas devem ser pausadas para clientes com tickets de suporte abertos."
+        },
+        {
+            "contactId": "396",
+            "customer_journey": {
+                "funnel_stage": "N/A (Não Engajado)",
+                "objections": [],
+                "buying_signals": []
+            },
+            "key_moment_analysis": {
+                "description": "A interação foi totalmente automatizada, sem resposta do cliente.",
+                "key_message_body": "N/A"
+            },
+            "final_recommendation": "Lead não engajado. A estratégia de contato para este perfil precisa ser reavaliada."
+        },
+        {
+            "contactId": "397",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Gostaria de saber para qual profissional",
+                    "Sou terapeuta nível superior e pós graduado em neurociência clínica além de Neuropsicanálise gostaria de saber se posso fazer esse curso e dá acesso a clinicar cm ele ?"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente fez uma pergunta crucial sobre sua elegibilidade para fazer o curso e atuar na área. Essa pergunta, que representa uma barreira de compra, foi completamente ignorada. A falta de resposta direta resultou na perda do interesse do cliente.",
+                "key_message_body": "Sou terapeuta nível superior e pós graduado em neurociência clínica além de Neuropsicanálise gostaria de saber se posso fazer esse curso e dá acesso a clinicar cm ele ? Dentro de meus atendimentos lógico....??"
+            },
+            "final_recommendation": "É vital que a equipe de vendas seja treinada para responder a perguntas sobre escopo de prática e elegibilidade. Ignorar essas questões, que são fundamentais para a decisão de compra do profissional, é um erro grave. Um agente deveria ter assumido a conversa para esclarecer as dúvidas e construir confiança."
+        },
+        {
+            "contactId": "399",
+            "customer_journey": {
+                "funnel_stage": "N/A (Não Engajado)",
+                "objections": [],
+                "buying_signals": []
+            },
+            "key_moment_analysis": {
+                "description": "A interação foi puramente automatizada, sem resposta ou engajamento do cliente.",
+                "key_message_body": "N/A"
+            },
+            "final_recommendation": "O lead não respondeu à campanha de automação. É necessário analisar se a oferta é adequada para este perfil de contato ou se a abordagem de comunicação precisa ser ajustada."
+        },
+        {
+            "contactId": "401",
+            "customer_journey": {
+                "funnel_stage": "Perdido (Reembolso Solicitado)",
+                "objections": [
+                    "Boa noite! Adquiri o curso mas o conteúdo apesar de bem explicado não é para mim. Por favor pode verificar o reembolso?"
+                ],
+                "buying_signals": []
+            },
+            "key_moment_analysis": {
+                "description": "O momento chave foi o pedido de reembolso da cliente, indicando que o produto não atendeu às suas expectativas. A falha subsequente foi do sistema de automação, que não reconheceu o status da cliente e continuou enviando propaganda.",
+                "key_message_body": "Boa noite! Adquiri o curso mas o conteúdo apesar de bem explicado não é para mim. Por favor pode verificar o reembolso? Paguei no PIX. Mara Sauter CPF 071.828.338-79"
+            },
+            "final_recommendation": "O processo de reembolso deve ser ágil e, uma vez solicitado, o cliente deve ser imediatamente removido de todas as listas de marketing e vendas para evitar interações inadequadas. A causa da insatisfação deve ser investigada para aprimorar o alinhamento de expectativas no futuro."
+        },
+        {
+            "contactId": "403",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Boa noite, tenho interesse na aquisição, por gentileza você poderia me passar as informações sobre essa aquisição?"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A cliente demonstrou interesse na aquisição de um aparelho, mas a resposta do agente foi confusa, misturando informações de diferentes cursos e não respondendo diretamente à pergunta sobre o orçamento do aparelho para o curso de tDCS.",
+                "key_message_body": "Boa noite, tenho interesse na aquisição, por gentileza você poderia me passar as informações sobre essa aquisição?"
+            },
+            "final_recommendation": "O agente precisa ser mais claro e direto ao responder às perguntas dos clientes. A confusão entre diferentes produtos e ofertas prejudica a clareza e a confiança. É importante focar na dúvida específica do cliente antes de introduzir outras ofertas."
+        },
+        {
+            "contactId": "408",
+            "customer_journey": {
+                "funnel_stage": "N/A (Não Engajado)",
+                "objections": [],
+                "buying_signals": []
+            },
+            "key_moment_analysis": {
+                "description": "Não houve uma conversa real, apenas uma troca de mensagens automáticas de ambos os lados.",
+                "key_message_body": "N/A"
+            },
+            "final_recommendation": "Este contato não gerou engajamento. A automação não foi eficaz para iniciar um diálogo."
+        },
+        {
+            "contactId": "410",
+            "customer_journey": {
+                "funnel_stage": "N/A (Não Engajado)",
+                "objections": [],
+                "buying_signals": []
+            },
+            "key_moment_analysis": {
+                "description": "Nenhuma conversa ocorreu; apenas mensagens automáticas foram enviadas.",
+                "key_message_body": "N/A"
+            },
+            "final_recommendation": "O lead não engajou com a campanha. A estratégia de contato precisa ser revista."
+        },
+        {
+            "contactId": "423",
+            "customer_journey": {
+                "funnel_stage": "Decisão",
+                "objections": [
+                    "Minha parcela tem que ser 450"
+                ],
+                "buying_signals": [
+                    "Gostaria de saber quando iniciará a pos",
+                    "Existiria a possibilidade de fazer o pagamento de 2000 e o restante parecelado em mais vezes?",
+                    "Tenho interesse"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento decisivo foi a negociação de pagamento. O cliente apresentou uma restrição orçamentária clara ('Minha parcela tem que ser 450'). O agente, em vez de desistir, elaborou uma proposta customizada (entrada + 18x de 450), conseguiu a aprovação e a apresentou de forma convincente, quase fechando a venda de um produto de alto valor.",
+                "key_message_body": "Aprovação do Financeiro:\\nEntrada (Pix): R$ 2.000,00\\nParcelas: 18x de R$ 450,00"
+            },
+            "final_recommendation": "Performance de negociação exemplar. A capacidade de criar soluções de pagamento personalizadas é uma habilidade crucial para vendas de alto valor. O agente demonstrou proatividade e foco no cliente. O único ponto a melhorar é o follow-up para garantir o fechamento após a negociação bem-sucedida."
+        },
+        {
+            "contactId": "425",
+            "customer_journey": {
+                "funnel_stage": "N/A (Não Engajado)",
+                "objections": [],
+                "buying_signals": []
+            },
+            "key_moment_analysis": {
+                "description": "Não houve uma conversa real, apenas uma troca de mensagens automáticas.",
+                "key_message_body": "N/A"
+            },
+            "final_recommendation": "Lead não engajado. A estratégia de automação não foi eficaz para iniciar um diálogo com este contato."
+        },
+        {
+            "contactId": "427",
+            "customer_journey": {
+                "funnel_stage": "N/A (Não Engajado)",
+                "objections": [],
+                "buying_signals": [
+                    "Ok"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "Não houve uma conversa significativa, apenas o envio de automações e uma resposta monossilábica do cliente.",
+                "key_message_body": "N/A"
+            },
+            "final_recommendation": "O lead não demonstrou interesse ativo. A abordagem de marketing para este contato deve ser reavaliada."
+        },
+        {
+            "contactId": "432",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Olá! Desejo finalizar minha matrícula no curso de tDCS!",
+                    "Gostaria de fazer a prática presencial se for uma boa data."
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A cliente começou com uma forte intenção de compra ('Desejo finalizar minha matrícula'), mas a conversa se dispersou e terminou sem um fechamento. A falta de um acompanhamento proativo do agente para guiar a cliente pela inscrição resultou na perda da oportunidade.",
+                "key_message_body": "Olá! Desejo finalizar minha matrícula no curso de tDCS!"
+            },
+            "final_recommendation": "Um lead que inicia a conversa dizendo que deseja finalizar a matrícula deve ser tratado com prioridade máxima. O agente deveria ter focado em facilitar a inscrição imediatamente, em vez de apenas enviar o link e deixar a conversa morrer. A proatividade no momento da decisão é chave."
+        },
+        {
+            "contactId": "434",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Muito obrigada, estou feliz por começar essa jornada, com um professor abençoado.",
+                    "Bom dia, sobre o curso de nervo Vago integrado, estou interessada, gostaria saber sobre aparelhos, preço, onde comprar."
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A cliente, já aluna de um curso, demonstrou interesse ativo em um segundo produto (curso de nervo vago) e fez perguntas específicas sobre ele. Essa é uma clara oportunidade de upsell que foi bem gerenciada na parte da resposta, mas poderia ser prejudicada pela automação excessiva.",
+                "key_message_body": "Bom dia, sobre o curso de nervo Vago integrado, estou interessada, gostaria saber sobre aparelhos, preço, onde comprar."
+            },
+            "final_recommendation": "A cliente é um lead quente para upsell. O agente respondeu bem à pergunta, mas o ideal seria assumir a conversa de forma totalmente humana a partir deste ponto para conduzir a nova venda, pausando as automações genéricas para não criar ruído."
+        },
+        {
+            "contactId": "439",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [
+                    "Não estou no grupo. Já entrei na aula"
+                ],
+                "buying_signals": [
+                    "Olá! Estou na turma de TDCS. Amanhã vocês enviam o link?"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A cliente, já inscrita no curso, estava com dificuldades de acesso ao link da aula, ao grupo e ao material. Suas solicitações de ajuda foram completamente ignoradas, e em vez de suporte, ela recebeu ofertas automáticas de outros cursos. Uma falha completa de atendimento pós-venda.",
+                "key_message_body": "Não estou no grupo. Já entrei na aula"
+            },
+            "final_recommendation": "O suporte ao aluno no dia do curso é crítico. Ignorar as dificuldades de acesso de uma aluna pagante é inaceitável e cria uma péssima experiência. É necessário um canal de suporte dedicado e ágil para eventos ao vivo. As automações de vendas devem ser pausadas para alunos com problemas de suporte."
+        },
+        {
+            "contactId": "441",
+            "customer_journey": {
+                "funnel_stage": "Perdido",
+                "objections": [
+                    "Por enqto não",
+                    "Vou deixar para outra oportunidade",
+                    "Vi o valor do avançado esperei que estivesse menos."
+                ],
+                "buying_signals": [
+                    "Gostaria de informação do TDCS básico",
+                    "Pode (verificar desconto)"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento decisivo foi a objeção de preço da cliente após a oferta de desconto para o curso tDCS ('Vi o valor do avançado esperei que estivesse menos'). O agente reagiu bem, pivotando para o curso de TEA, de menor valor, e conseguiu fechar essa venda, demonstrando flexibilidade e foco na conversão.",
+                "key_message_body": "Vi o valor do avançado esperei que estivesse menos. Vou me programar."
+            },
+            "final_recommendation": "Excelente exemplo de como persistir e encontrar uma solução mesmo após uma objeção de preço. A habilidade do agente de fazer um downsell para um produto mais adequado ao orçamento do cliente no momento foi crucial para não perder o lead e ainda realizar uma venda. Essa tática deve ser ensinada à equipe."
+        },
+        {
+            "contactId": "442",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Qual o valor da pós"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A cliente, que já havia comprado um curso inicial, demonstrou interesse no produto de maior valor (a Pós-Graduação). O agente forneceu as informações, mas não deu o próximo passo para nutrir esse interesse.",
+                "key_message_body": "Qual o valor da pós"
+            },
+            "final_recommendation": "Um cliente existente que pergunta sobre a Pós-Graduação é um lead extremamente quente. Após enviar as informações, o agente deveria ter feito uma pergunta aberta, como 'O que você achou da proposta? Faz sentido para o seu momento atual?'. Deixar a conversa morrer é uma oportunidade perdida."
+        },
+        {
+            "contactId": "445",
+            "customer_journey": {
+                "funnel_stage": "Perdido",
+                "objections": [
+                    "Não consigo fazer a compra deste curso"
+                ],
+                "buying_signals": []
+            },
+            "key_moment_analysis": {
+                "description": "O ponto chave foi a cliente relatando um problema técnico que a impedia de comprar ('Não consigo fazer a compra deste curso'). O agente agiu corretamente ao fornecer um novo link, resolvendo a barreira técnica.",
+                "key_message_body": "Não consigo fazer a compra deste curso"
+            },
+            "final_recommendation": "O agente resolveu bem o problema técnico. No entanto, o processo ideal seria acompanhar o cliente após fornecer a solução, perguntando 'Conseguiu finalizar com o novo link? Precisa de mais alguma ajuda?'. Esse acompanhamento aumenta a taxa de conversão em casos de problemas técnicos."
+        },
+        {
+            "contactId": "447",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Boa tarde tudo bem?? Tem alguma apostila do curso de tea para acompanhar as vídeo aulas ???"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A cliente, já aluna, fez uma pergunta de suporte sobre o material do curso. A pergunta foi ignorada, e em vez de ajuda, ela recebeu ofertas de novos cursos. Essa é uma falha grave de atendimento.",
+                "key_message_body": "Boa tarde tudo bem?? Tem alguma apostila do curso de tea para acompanhar as vídeo aulas ???"
+            },
+            "final_recommendation": "É crucial que o sistema de CRM ou de atendimento consiga diferenciar uma pergunta de suporte de uma interação de vendas. Ignorar dúvidas de alunos e enviar propaganda cria uma experiência extremamente negativa. O processo de suporte ao aluno precisa ser revisto com urgência."
+        },
+        {
+            "contactId": "451",
+            "customer_journey": {
+                "funnel_stage": "Decisão",
+                "objections": [
+                    "Eu não quero fazer uma pós-graduação, pois já tenho doutorado"
+                ],
+                "buying_signals": [
+                    "Eu sou biomédica",
+                    "Com doutorado em neurociência",
+                    "Trabalho com migrânea",
+                    "Gostaria de fazer um curso de aperfeiçoamento.",
+                    "Eu posso atender paciente com este curso?"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A cliente, uma profissional altamente qualificada (Doutora em neurociência), estava na fase de decisão e fez uma série de perguntas finais para validar a credibilidade do curso. A incapacidade do agente de responder a essas perguntas essenciais sobre a instituição formadora interrompeu o processo de venda no último momento.",
+                "key_message_body": "Qual eé a instituição formadora, quanto tempo de curso e valores? Onde fica a sede e da instituição formadora?"
+            },
+            "final_recommendation": "A equipe de vendas precisa ter na ponta da língua todas as informações institucionais e de credibilidade dos cursos. Para clientes com alto nível de formação, esses detalhes são decisivos. A falta dessa informação representa uma falha de preparo que custou uma venda qualificada."
+        },
+        {
+            "contactId": "453",
+            "customer_journey": {
+                "funnel_stage": "Decisão (Vendido)",
+                "objections": [],
+                "buying_signals": [
+                    "Sim (interesse na matrícula)",
+                    "Não , salvador",
+                    "Solicitei a matrícula, mas não apareceu o local onde irei realizar a prática"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento chave foi a preocupação da cliente sobre como confirmar sua vaga na turma presencial de Salvador. O agente lidou bem com a situação, explicando que a equipe externa entraria em contato e assegurando que tudo seria resolvido, mantendo a confiança da cliente e garantindo a conclusão da matrícula.",
+                "key_message_body": "Solicitei a matrícula, mas não apareceu o local onde irei realizar a prática, como fico sabendo que fiz a inscrição pra salvador ,?"
+            },
+            "final_recommendation": "Ótimo exemplo de como gerenciar as expectativas e a ansiedade do cliente durante o processo de inscrição, especialmente quando envolve logística de eventos presenciais e parceiros externos. A comunicação clara e a proatividade do agente foram essenciais para o sucesso da venda."
+        },
+        {
+            "contactId": "454",
+            "customer_journey": {
+                "funnel_stage": "Decisão (Vendido)",
+                "objections": [
+                    "Mas ele está na promoção",
+                    "E vou aprender protocolos só de tea ou de outras patologias?"
+                ],
+                "buying_signals": [
+                    "Os dois cursoa",
+                    "Vou aprender do zero?",
+                    "Comprando o tea o binaural tá com desconto no seu link",
+                    "Confirme pra mim pq vou comprar nesta condição"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento decisivo foi quando a cliente questionou a validade de uma oferta de pacote ('Comprando o tea o binaural tá com desconto no seu link'). O agente, após uma pequena confusão, confirmou a promoção, o que foi o gatilho final para a cliente decidir pela compra dos dois produtos.",
+                "key_message_body": "Confirme pra mim pq vou comprar nesta condição"
+            },
+            "final_recommendation": "Excelente performance de vendas, especialmente na gestão de uma oferta de pacote (order bump). A habilidade de confirmar rapidamente a promoção e esclarecer o escopo de cada curso foi fundamental para a conversão. Este diálogo mostra a importância do conhecimento profundo das ofertas ativas."
+        },
+        {
+            "contactId": "455",
+            "customer_journey": {
+                "funnel_stage": "Perdido (Problema Técnico)",
+                "objections": [
+                    "Nao tem grupo. Ja estou em contato com a Kariny"
+                ],
+                "buying_signals": [
+                    "Bom dia",
+                    "Vou gravar, ta?"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente relatou um problema técnico com um aplicativo do curso. A conversa se tornou confusa, com o agente não compreendendo a situação e o problema ficando sem solução, enquanto o cliente já estava tentando resolver com outra pessoa da equipe. A falta de um atendimento centralizado e eficaz gerou uma experiência ruim.",
+                "key_message_body": "Nao tem grupo. Ja estou em contato com a Kariny"
+            },
+            "final_recommendation": "É necessário centralizar e agilizar o suporte técnico. Um cliente não deveria ter que relatar o mesmo problema para várias pessoas. A comunicação interna e a gestão de tickets de suporte precisam ser aprimoradas para evitar que clientes fiquem perdidos entre diferentes contatos e automações."
+        },
+        {
+            "contactId": "457",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Gostaria de saber se posso colocar o link do BrainPro no meu site ?"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O cliente, um parceiro ou aluno engajado, pediu permissão para divulgar o link da empresa. O agente compreendeu a natureza da solicitação e fez o encaminhamento correto, demonstrando bom senso e conhecimento da estrutura da empresa.",
+                "key_message_body": "Boa noite, equipe do prof. Alexandre. Gostaria de saber se posso colocar o link do BrainPro no meu site ?"
+            },
+            "final_recommendation": "Ótimo gerenciamento de uma solicitação de parceria. O agente soube sair do script de vendas e fornecer a orientação correta, fortalecendo o relacionamento com um parceiro em potencial. Este é um bom exemplo de atendimento flexível e eficaz."
+        },
+        {
+            "contactId": "458",
+            "customer_journey": {
+                "funnel_stage": "Consideração",
+                "objections": [],
+                "buying_signals": [
+                    "Gostaria de mais informações sobre a pós graduação em Tdcs, por favor",
+                    "Já possuo o curso em neuromodulação"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "A cliente, que já possui formação na área, demonstrou interesse no produto de maior valor (Pós-Graduação) para se aprofundar. O agente forneceu as informações, mas não explorou mais a fundo as motivações da cliente ou tentou conduzi-la para a inscrição.",
+                "key_message_body": "Gostaria de mais informações sobre a pós graduação em Tdcs, por favor"
+            },
+            "final_recommendation": "Um lead que já tem formação e busca uma Pós é altamente qualificado. Após apresentar o produto, o agente deveria ter feito perguntas para entender os objetivos da cliente, como 'Excelente! O que na grade curricular da nossa Pós mais te chamou a atenção?' ou 'Como você acredita que a Pós pode complementar a formação que você já tem?'. Isso criaria um diálogo mais rico e aumentaria a chance de conversão."
+        },
+        {
+            "contactId": "459",
+            "customer_journey": {
+                "funnel_stage": "Decisão (Vendido)",
+                "objections": [
+                    "Puxa vida. Eu coloquei pra agendamento o boleto da pós esse mês. Fui olhar hoje e nao aconteceu o pagamento"
+                ],
+                "buying_signals": [
+                    "Tem sim 👍🏻",
+                    "Já me inscrevi no curso presencial em salvador",
+                    "Consegui. Vcs podem enviar as notas fiscais?🥰"
+                ]
+            },
+            "key_moment_analysis": {
+                "description": "O momento chave foi quando a cliente relatou um problema no pagamento agendado do boleto. A resposta calma e resolutiva do agente ('Tenta efetuar por gentileza o pagamento com o mesmo boleto. Caso não consiga, nos avise por gentileza para gerarmos uma segunda via') foi crucial para manter a venda e garantir a satisfação da cliente.",
+                "key_message_body": "Puxa vida. Eu coloquei pra agendamento o boleto da pós esse mês. Fui olhar hoje e nao aconteceu o pagamento"
+            },
+            "final_recommendation": "Excelente gerenciamento de todo o ciclo de vendas, desde a negociação inicial até a resolução de problemas de pagamento no pós-venda. A capacidade do agente de ser flexível, comunicativo e resolutivo foi fundamental para o sucesso. Este diálogo é um ótimo exemplo de como lidar com a complexidade de vendas que envolvem parceiros e pagamentos recorrentes."
+        }
+    ]
+}`;
+
+document.addEventListener('DOMContentLoaded', function () {
+    const data = JSON.parse(jsonDataString);
+    const analysis = data.dialogue_analysis;
+
+    const dashboardContainer = document.getElementById('dashboard-container');
+    const detailsContainer = document.getElementById('analysis-container');
+    const detailsTitle = document.getElementById('details-title');
+
+    const summary = {
+        totalDialogues: analysis.length,
+        funnelStages: {},
+        objections: {},
+        buyingSignals: {},
+        dialoguesWithObjections: 0,
+        dialoguesWithSignals: 0
+    };
+
+    analysis.forEach(item => {
+        const stage = item.customer_journey.funnel_stage.split('(')[0].trim();
+        summary.funnelStages[stage] = (summary.funnelStages[stage] || 0) + 1;
+
+        if (item.customer_journey.objections && item.customer_journey.objections.length > 0) {
+            summary.dialoguesWithObjections++;
+            item.customer_journey.objections.forEach(obj => {
+                const cleanObj = obj.split('(')[0].trim();
+                summary.objections[cleanObj] = (summary.objections[cleanObj] || 0) + 1;
+            });
+        }
+        if (item.customer_journey.buying_signals && item.customer_journey.buying_signals.length > 0) {
+            summary.dialoguesWithSignals++;
+            item.customer_journey.buying_signals.forEach(signal => {
+                const cleanSignal = signal.split('(')[0].trim();
+                summary.buyingSignals[cleanSignal] = (summary.buyingSignals[cleanSignal] || 0) + 1;
+            });
+        }
+    });
+    
+    const totalDialogues = summary.totalDialogues;
+    const conversionRate = (((summary.funnelStages['Decisão'] || 0)) / totalDialogues * 100).toFixed(1);
+    const lossRate = (((summary.funnelStages['Perdido'] || 0)) / totalDialogues * 100).toFixed(1);
+    const signalRate = (summary.dialoguesWithSignals / totalDialogues * 100).toFixed(1);
+    const objectionRate = (summary.dialoguesWithObjections / totalDialogues * 100).toFixed(1);
+
+
+    const getTopFive = (obj) => Object.entries(obj)
+                                          .sort(([,a],[,b]) => b - a)
+                                          .slice(0, 5);
+
+    const topObjections = getTopFive(summary.objections);
+    const topSignals = getTopFive(summary.buyingSignals);
+    const sortedStages = Object.entries(summary.funnelStages).sort(([,a],[,b]) => b - a);
+
+    const getStageColor = (stage) => {
+        const stageLower = stage.toLowerCase();
+        if (stageLower.includes('decisão')) return 'var(--success-color)';
+        if (stageLower.includes('consideração')) return 'var(--warning-color)';
+        if (stageLower.includes('descoberta')) return 'var(--info-color)';
+        if (stageLower.includes('perdido')) return 'var(--danger-color)';
+        return '#6c757d';
+    };
+
+    let dashboardHTML = `
+        <h2>Panorama Geral da Análise</h2>
+        <div class="metrics-grid">
+            <div class="metric">
+                <p class="metric-value">${totalDialogues}</p>
+                <p class="metric-label">Diálogos Analisados</p>
+            </div>
+             <div class="metric">
+                <p class="metric-value" style="color: var(--success-color);">${conversionRate}%</p>
+                <p class="metric-label">Taxa de Conversão (Decisão)</p>
+            </div>
+            <div class="metric">
+                <p class="metric-value" style="color: var(--danger-color);">${lossRate}%</p>
+                <p class="metric-label">Taxa de Perda</p>
+            </div>
+            <div class="metric">
+                <p class="metric-value" style="color: var(--info-color);">${signalRate}%</p>
+                <p class="metric-label">Engajamento (Sinais)</p>
+            </div>
+            <div class="metric">
+                <p class="metric-value" style="color: var(--warning-color);">${objectionRate}%</p>
+                <p class="metric-label">Atrito (Objeções)</p>
+            </div>
+        </div>
+        <div class="summary-grid">
+            <div class="summary-card">
+                <h3>Distribuição por Etapa do Funil</h3>
+                <table>
+                    ${sortedStages.map(([stage, count]) => `
+                        <tr>
+                            <td><span class="stage-badge" style="background-color: ${getStageColor(stage)};">${stage}</span></td>
+                            <td>${count}</td>
+                        </tr>
+                    `).join('')}
+                </table>
+            </div>
+            <div class="summary-card">
+                <h3>Principais Objeções</h3>
+                <table>
+                     ${topObjections.map(([obj, count]) => `
+                        <tr>
+                            <td>${obj}</td>
+                            <td>${count}</td>
+                        </tr>
+                    `).join('')}
+                </table>
+            </div>
+            <div class="summary-card">
+                <h3>Principais Sinais de Compra</h3>
+                <table>
+                     ${topSignals.map(([signal, count]) => `
+                        <tr>
+                            <td>${signal}</td>
+                            <td>${count}</td>
+                        </tr>
+                    `).join('')}
+                </table>
+            </div>
+        </div>`;
+    dashboardContainer.innerHTML = dashboardHTML;
+
+    if(analysis.length > 0) {
+        detailsTitle.style.display = 'block';
+    }
+    analysis.forEach(item => {
+        const journey = item.customer_journey;
+        const key_moment = item.key_moment_analysis;
+
+        let signalsHTML = '<ul>';
+        if (journey.buying_signals && journey.buying_signals.length > 0) {
+            journey.buying_signals.forEach(signal => {
+                signalsHTML += `<li class="list-item signal">✔ ${signal}</li>`;
+            });
+        } else {
+            signalsHTML += '<li>Nenhum sinal de compra identificado.</li>';
+        }
+        signalsHTML += '</ul>';
+
+        let objectionsHTML = '<ul>';
+        if (journey.objections && journey.objections.length > 0) {
+            journey.objections.forEach(objection => {
+                objectionsHTML += `<li class="list-item objection">✖ ${objection}</li>`;
+            });
+        } else {
+            objectionsHTML += '<li>Nenhuma objeção identificada.</li>';
+        }
+        objectionsHTML += '</ul>';
+
+        const itemHTML = `
+            <details class="accordion-item">
+                <summary>
+                    <span class="contact-id">Contato #${item.contactId}</span>
+                    <span class="funnel-stage" style="background-color: ${getStageColor(journey.funnel_stage)};">${journey.funnel_stage}</span>
+                </summary>
+                <div class="accordion-content">
+                    <div class="section">
+                        <h4>Sinais de Compra</h4>
+                        ${signalsHTML}
+                        <h4>Objeções</h4>
+                        ${objectionsHTML}
+                    </div>
+                    <div class="section">
+                        <h4>Análise do Momento Chave</h4>
+                        <p>${key_moment.description}</p>
+                        <div class="key-message">
+                            <strong>Mensagem Chave:</strong>
+                            <p>${key_moment.key_message_body}</p>
+                        </div>
+                    </div>
+                    <div class="section">
+                        <h4>Recomendação Final</h4>
+                        <div class="recommendation">
+                            <p><strong>Ação Sugerida:</strong> ${item.final_recommendation}</p>
+                        </div>
+                    </div>
+                </div>
+            </details>
+        `;
+        detailsContainer.innerHTML += itemHTML;
+    });
+});
+</script>
+
+</body>
+</html>
